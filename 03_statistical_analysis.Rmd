@@ -1,0 +1,59 @@
+---
+title:     "Cirrincione T Study - Statistical Analysis"
+updated:   1/10/24
+author:    Rene coig
+output:    html_notebook
+---
+Study Description: The purpose of this project is to determine how testosterone affects other medications and the natural bacteria that lives in the gut.
+
+Notebook Description: Wilkoxon signed rank tests. 
+
+R version 4.4.2 "Pile of Leaves"
+
+Load in data
+```{r}
+rm(list = ls())#clearing environment
+load("_output/NCA_Analysis.RData")
+```
+Test Tmax with paired Wilcoxon signed rank test.
+```{r}
+Test_tmax1_2<-PK_analysis_wide%>%
+  select(Tmax_1, Tmax_2)%>%
+  filter(!(is.na(Tmax_2))) #N = 11
+Tmax_1 <- Test_tmax1_2$Tmax_1
+Tmax_2 <- Test_tmax1_2$Tmax_2
+Tmax_1
+Tmax_2
+Test_tmax1_2 <- wilcox.test(Tmax_1,Tmax_2,paired = TRUE)
+Test_tmax1_2
+
+Test_tmax1_3<-PK_analysis_wide%>%
+  select(Tmax_1, Tmax_3) #N = 14
+Tmax_1 <- Test_tmax1_3$Tmax_1
+Tmax_3 <- Test_tmax1_3$Tmax_3
+Tmax_1
+Tmax_3
+Test_tmax1_3 <- wilcox.test(Tmax_1,Tmax_3,paired = TRUE)
+Test_tmax1_3
+```
+Test AUC with paired Wilcoxon signed rank test.
+```{r}
+Test_AUC1_2<-PK_analysis_wide%>%
+  select(AUClast_1, AUClast_2)%>%
+  filter(!(is.na(AUClast_2))) #N = 11
+AUClast_1 <- Test_AUC1_2$AUClast_1
+AUClast_2 <- Test_AUC1_2$AUClast_2
+AUClast_1
+AUClast_2
+Test_AUC1_2 <- wilcox.test(AUClast_1,AUClast_2,paired = TRUE)
+Test_AUC1_2
+
+Test_AUC1_3<-PK_analysis_wide%>%
+  select(AUClast_1, AUClast_3) #N = 14
+AUClast_1 <- Test_AUC1_3$AUClast_1
+AUClast_3 <- Test_AUC1_3$AUClast_3
+AUClast_1
+AUClast_3
+Test_AUC1_3 <- wilcox.test(AUClast_1,AUClast_3,paired = TRUE)
+Test_AUC1_3
+```

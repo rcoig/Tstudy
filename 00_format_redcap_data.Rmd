@@ -1,0 +1,115 @@
+---
+title:     "Cirrincione T Study - Formatting redcap data"
+updated:   1/10/25
+author:    Rene coig
+output:    html_notebook
+---
+Study Description: The purpose of this project is to determine how testosterone affects other medications and the natural bacteria that lives in the gut.
+
+Notebook Description: Formatting time and date data from redcap.
+
+R version 4.4.2 "Pile of Leaves"
+
+Load required packages.
+```{r}
+library(tidyverse)  
+library(lubridate)
+```
+Load in raw data files.
+```{r}
+rm(list = ls())#clearing environment
+
+data<- read.csv("_data/data_T_redcap_20250108.csv", header = TRUE)
+
+data<- read.csv("_data/data_T_redcap_20250108.csv", header = TRUE)%>% #redcap data
+  mutate(date_dv = mdy(date_dv),
+         return_date = mdy(return_date)) # Converts the date to a standard format
+
+data_dig <- read.csv("_data/data_T_dig_20240706.csv", header = TRUE)%>% #experimental digoxin data
+  select(-X)%>%
+  rename(study_id=PID_clean, time_min=Time_clean, drug_visit_number_tru = visits)%>%
+    mutate(across(everything(), as.numeric),  # Convert all columns to numeric for compatibility with ncappc package
+    time_hr = round(time_min / 60, 2)  # Convert time from minutes to hours with 2 decimal places
+  ) 
+data_dig
+```
+Extract dates and times of return visit blood draws.
+```{r}
+drawtimes_return <- data %>%
+  select(study_id, drug_visit_number_return, return_visit, return_date, return_blood_time)%>%
+  filter(!(is.na(return_date)))%>%
+  mutate(
+    datetime = as.POSIXct(paste(return_date, return_blood_time, ":00"), format = "%Y-%m-%d %H:%M"),
+    datetime_1440min_dv = if_else(return_visit == "1", datetime, as.POSIXct(NA)),
+    datetime_2880min_dv = if_else(return_visit == "2", datetime, as.POSIXct(NA))
+  )%>%
+  group_by(study_id, drug_visit_number_return) %>%
+  summarise(
+    datetime_1440min_dv = first(na.omit(datetime_1440min_dv)),
+    datetime_2880min_dv = first(na.omit(datetime_2880min_dv)),
+    .groups = "drop"
+  )%>%
+  filter(!(is.na(datetime_1440min_dv) & is.na(datetime_2880min_dv)))%>%
+  rename(drug_visit_number_tru = drug_visit_number_return)
+drawtimes_return
+```
+Extract dates and times of initial visit blood draws. 
+```{r}
+drawtimes_initial <- data %>%
+    mutate(
+    date_dv = as.Date(date_dv, format = "%Y-%m-%d"),
+    datetime_dose_dv = as.POSIXct(paste(date_dv, time_dose_dv, ":00"), format = "%Y-%m-%d %H:%M"),
+    datetime_15min_dv = as.POSIXct(paste(date_dv, time_15min_dv, ":00"), format = "%Y-%m-%d %H:%M"),
+    datetime_30min_dv = as.POSIXct(paste(date_dv, time_30min_dv, ":00"), format = "%Y-%m-%d %H:%M"),
+    datetime_45min_dv = as.POSIXct(paste(date_dv, time_45min_dv, ":00"), format = "%Y-%m-%d %H:%M"),
+    datetime_60min_dv = as.POSIXct(paste(date_dv, time_60min_dv, ":00"), format = "%Y-%m-%d %H:%M"),
+    datetime_90min_dv = as.POSIXct(paste(date_dv, time_90min_dv, ":00"), format = "%Y-%m-%d %H:%M"),
+    datetime_120min_dv = as.POSIXct(paste(date_dv, time_120min_dv, ":00"), format = "%Y-%m-%d %H:%M"),
+    datetime_240min_dv = as.POSIXct(paste(date_dv, time_240min_dv, ":00"), format = "%Y-%m-%d %H:%M"),
+    datetime_360min_dv = as.POSIXct(paste(date_dv, time_360min_dv, ":00"), format = "%Y-%m-%d %H:%M"),
+    datetime_480min_dv = as.POSIXct(paste(date_dv, time_480min_dv, ":00"), format = "%Y-%m-%d %H:%M"),
+    datetime_720min_dv = as.POSIXct(paste(date_dv, time_720min_dv, ":00"), format = "%Y-%m-%d %H:%M")) %>%
+  select(study_id, drug_visit_number_tru, datetime_dose_dv, datetime_15min_dv, datetime_30min_dv,
+         datetime_45min_dv, datetime_60min_dv, datetime_90min_dv, datetime_120min_dv, datetime_240min_dv,
+         datetime_360min_dv, datetime_480min_dv, datetime_720min_dv)%>%
+  filter(!(is.na(drug_visit_number_tru)))%>%
+  filter(study_id!="12")#participant 12 is empty data as they dropped the study 
+drawtimes_initial
+```
+Append return visit date times to initial visit date times. Use lubridate package to calculate the actual number of minutes and hours from the initial dose time.
+```{r}
+drawtimes <- full_join(drawtimes_initial, drawtimes_return, by = c("study_id", "drug_visit_number_tru"))%>%
+    mutate(across(
+      .cols = -c(study_id, drug_visit_number_tru, datetime_dose_dv), # Exclude the first three columns
+      .fns = ~ as.numeric(difftime(., datetime_dose_dv, units = "mins")), # Calculate time difference in minutes
+      .names = "actual_{.col}" # Create new columns with prefix "actual_"
+    )
+  )
+```
+Reshape data and append actual times to the concentration data which currently has ideal times only. Calculate the difference in time between actual and ideal blood draw time points.
+```{r}
+drawtimes_long <- drawtimes %>% # Reshape to long format
+  pivot_longer(
+    cols = starts_with("actual"), # Columns to pivot (all "actual_*" columns)
+    names_to = "time_min",      # New column for variable names
+    values_to = "time_min_actual" # New column for values
+  )%>%
+  select(study_id,drug_visit_number_tru,time_min,time_min_actual)%>%
+  mutate(time_min = as.numeric(gsub("actual_datetime_|min_dv", "", time_min)))%>%
+  mutate(across(everything(), as.numeric),  # Convert all columns to numeric
+    time_hr_actual = round(time_min_actual / 60, 2)) # Convert actual times from minutes to hours with 2 decimal places
+
+data_dig_adjusted<-full_join(data_dig,drawtimes_long,by=c("study_id","drug_visit_number_tru","time_min"))%>%
+    filter(!(is.na(conc_1ml_adjust)))%>% #remove NAs
+  mutate(
+    time_min_actual = if_else(time_min == 0, time_min, time_min_actual),
+    time_hr_actual = if_else(time_hr == 0.00, time_hr, time_hr_actual),#ensure initial time zero is preserved across the df
+    time_min_diff = time_min_actual - time_min,
+    time_hr_diff = time_hr_actual - time_hr)%>%
+    select(study_id, drug_visit_number_tru, dose, time_min, time_hr, time_min_actual, time_hr_actual,
+           time_min_diff, time_hr_diff, conc_1ml_adjust)
+```
+Save data frame in R format for reloading in other scripts.
+```{r}
+save(data_dig_adjusted, file = "_output/data_dig_adjusted.RData")
+```

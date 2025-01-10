@@ -1,0 +1,182 @@
+---
+title:     "Cirrincione T Study - Adjusting digoxin data and calculating summaries"
+updated:   1/10/25
+author:    Rene coig
+output:    html_notebook
+---
+Study Description: The purpose of this project is to determine how testosterone affects other medications and the natural bacteria that lives in the gut.
+
+Notebook Description: Adjusting Digoxin data using ncappc and calculating resulting summary data.
+
+R version 4.4.2 "Pile of Leaves"
+
+Load required packages.
+```{r}
+library(tidyverse)   
+library(ncappc) 
+```
+Load in Digoxin data
+```{r}
+rm(list = ls())#clearing environment
+load("_output/data_dig_adjusted.RData")
+
+data_dig_adjusted <- data_dig_adjusted%>%
+  rename(ID=study_id)#ncappc package does not like the name "study_id"
+```
+Computing the non-compartmental pharmacokinetic analysis, with all timepoints included to generate lambda_zed. Lambda_zed will be used to adjust the drug concentration in the plasma for 24 and 48 hour ideal timepoints.
+```{r}
+ncappc(obsFile = data_dig_adjusted,
+       str1Nm = "drug_visit_number_tru",
+       str1 = c(1,2,3),
+       concUnit = "ng/ml",
+       timeUnit = "hours",
+       doseUnit = "ng",
+       idNmObs = "ID",
+       timeNmObs = "time_hr_actual",
+       concNmObs = "conc_1ml_adjust",
+       doseAmtNm = "dose",
+       onlyNCA = TRUE,
+       LambdaTimeRange = "NULL",
+       backExtrp = TRUE,
+       method = "linearup-logdown",
+       studyName = "T_Study",
+       outFileNm = "T_STUDY",
+       extrapolate = TRUE,
+       gg_theme = theme_classic())
+
+Lambda_zed <- ncaOutput %>% select(ID, drug_visit_number_tru, Lambda_z)
+data_dig_adjusted<-merge(data_dig_adjusted,Lambda_zed,by=c("ID","drug_visit_number_tru"))
+Lambda_zed
+```
+Use the lambda_z value to calculate adjusted concentrations based on the actual time points using the equation: C = C(0) ∗ e^(−λ∗τ) where C(0) is the original concentratio.
+```{r}
+# Update concentration values using the first-order kinetics equation only for 24 and 48 hour values
+data_dig_adjusted$conc_1ml_new <- ifelse(data_dig_adjusted$time_hr %in% c(24, 48),
+  data_dig_adjusted$conc_1ml_adjust * exp(-data_dig_adjusted$Lambda_z * data_dig_adjusted$time_hr_actual),
+  data_dig_adjusted$conc_1ml_adjust
+)
+
+plot(data_dig_adjusted$conc_1ml_adjust~data_dig_adjusted$conc_1ml_new)# only lowest concentrations are affected as expected
+```
+Re-run the ncappc package on the adjusted values to calculate new lambda_zed for ideal time points.
+```{r}
+ncappc(obsFile = data_dig_adjusted,
+       str1Nm = "drug_visit_number_tru",
+       str1 = c(1,2,3),
+       concUnit = "ng/ml",
+       timeUnit = "hours",
+       doseUnit = "ng",
+       idNmObs = "ID",
+       timeNmObs = "time_hr",
+       concNmObs = "conc_1ml_new",
+       doseAmtNm = "dose",
+       onlyNCA = TRUE,
+       LambdaTimeRange = "NULL",
+       method = "linearup-logdown",
+       studyName = "T_Study",
+       outFileNm = "T_STUDY",
+       extrapolate = TRUE,
+       gg_theme = theme_classic())
+
+Lambda_zed_new <- ncaOutput %>% select(ID, drug_visit_number_tru, Lambda_z)%>%
+  rename(Lambda_z_new=Lambda_z)
+data_dig_adjusted<-merge(data_dig_adjusted,Lambda_zed_new,by=c("ID","drug_visit_number_tru"))
+Lambda_zed_new
+plot(data_dig_adjusted$Lambda_z~data_dig_adjusted$Lambda_z_new) # lambda_z has been adjusted
+```
+Generate a new dataset with columns for mean concentration and standard deviation(SD).
+```{r}
+dig_summary <- data_dig_adjusted %>%
+  group_by(time_hr, drug_visit_number_tru) %>%
+  summarise(mean_conc = mean(conc_1ml_new, na.rm = TRUE), 
+            SD_conc = sd(conc_1ml_new, na.rm = TRUE))
+```
+Create a new dataframe containing data for summary table (Cmax, AUClast, HL_lambda_z (terminal half-life), and Cl_obs). 
+```{r}
+PK_analysis <- ncaOutput %>% 
+  select(ID, drug_visit_number_tru, Tmax, Cmax, Cl_obs, HL_Lambda_z, AUClast) 
+```
+Reshape data from long format to wide format. 
+```{r}
+PK_analysis_wide <- dcast(melt(PK_analysis, id.vars=c("ID", "drug_visit_number_tru")), ID ~ variable+drug_visit_number_tru) 
+```
+Add a new column with ratios for 1 and 3 and 1 and 2
+```{r}
+PK_analysis_wide$Cmax_ratio1_3 <- with(PK_analysis_wide, Cmax_3/Cmax_1) 
+PK_analysis_wide$Cmax_ratio1_2 <- with(PK_analysis_wide, Cmax_2/Cmax_1) 
+
+PK_analysis_wide$Cl_obs_ratio1_3 <- with(PK_analysis_wide, Cl_obs_3/Cl_obs_1) 
+PK_analysis_wide$Cl_obs_ratio1_2 <- with(PK_analysis_wide, Cl_obs_2/Cl_obs_1) 
+
+PK_analysis_wide$HL_Lambda_z_ratio1_3 <- with(PK_analysis_wide, HL_Lambda_z_3/HL_Lambda_z_1)
+PK_analysis_wide$HL_Lambda_z_ratio1_2 <- with(PK_analysis_wide, HL_Lambda_z_2/HL_Lambda_z_1)
+
+PK_analysis_wide$AUClast_ratio1_3 <- with(PK_analysis_wide, AUClast_3/AUClast_1) 
+PK_analysis_wide$AUClast_ratio1_2 <- with(PK_analysis_wide, AUClast_2/AUClast_1) 
+```
+Calculate geometric mean and 95% CI for the individual parameters.
+```{r}
+source("_source/geometric_mean.R")
+Cmax_GMR1_3 <- geo(PK_analysis_wide$Cmax_ratio1_3)
+Cmax_GMR1_2 <- geo(PK_analysis_wide$Cmax_ratio1_2)
+Cl_GMR1_3 <- geo(PK_analysis_wide$Cl_obs_ratio1_3)
+Cl_GMR1_2 <- geo(PK_analysis_wide$Cl_obs_ratio1_2)
+
+HL_GMR1_3 <- geo(PK_analysis_wide$HL_Lambda_z_ratio1_3)
+HL_GMR1_2 <- geo(PK_analysis_wide$HL_Lambda_z_ratio1_2)
+
+AUC_GMR1_3 <- geo(PK_analysis_wide$AUClast_ratio1_3)
+AUC_GMR1_2 <- geo(PK_analysis_wide$AUClast_ratio1_2)
+
+Tmax_GMR1_3 <- "NA"
+Tmax_GMR1_2 <- "NA"
+results_GMR1_2 <- rbind(AUC_GMR1_2, Cmax_GMR1_2, HL_GMR1_2, Cl_GMR1_2, Tmax_GMR1_2)
+results_GMR1_3 <- rbind(AUC_GMR1_3, Cmax_GMR1_3, HL_GMR1_3, Cl_GMR1_3, Tmax_GMR1_3)
+```
+Calculate median for the individual parameters pre and post T. Filter out the individuals that have NA values.
+```{r}
+source("_source/medians.R")
+
+Cmax_1_M <- medians(PK_analysis_wide$Cmax_1)
+Cmax_2_M <- medians(PK_analysis_wide$Cmax_2)
+Cmax_3_M <- medians(PK_analysis_wide$Cmax_3)
+
+Cl_1_M <- medians(PK_analysis_wide$Cl_obs_1)
+Cl_2_M <- medians(PK_analysis_wide$Cl_obs_2)
+Cl_3_M <- medians(PK_analysis_wide$Cl_obs_3)
+
+HL_1_M <- medians(PK_analysis_wide$HL_Lambda_z_1)
+HL_2_M <- medians(PK_analysis_wide$HL_Lambda_z_2)
+HL_3_M <- medians(PK_analysis_wide$HL_Lambda_z_3)
+
+AUC_1_M <- medians(PK_analysis_wide$AUClast_1)
+AUC_2_M <- medians(PK_analysis_wide$AUClast_2)
+AUC_3_M <- medians(PK_analysis_wide$AUClast_3)
+
+Tmax_1_M <- medians(PK_analysis_wide$Tmax_1)
+Tmax_2_M <- medians(PK_analysis_wide$Tmax_2)
+Tmax_3_M <- medians(PK_analysis_wide$Tmax_3)
+```
+Assemble results in three columns (pre and post T) for Table 2.
+```{r}
+results_preT <- rbind(AUC_1_M, Cmax_1_M, HL_1_M, Cl_1_M, Tmax_1_M) 
+results_postT2 <- rbind(AUC_2_M, Cmax_2_M, HL_2_M, Cl_2_M, Tmax_2_M) 
+results_postT3 <- rbind(AUC_3_M, Cmax_3_M, HL_3_M, Cl_3_M, Tmax_3_M) 
+```
+Assemble Table 2.
+```{r}
+Table2 <- matrix(nrow=5, ncol=0)
+Table2 <- cbind(results_preT, results_postT2, results_postT3, results_GMR1_2, results_GMR1_3, Table2)
+
+colnames1 <- c("PRE T (Median (IQR))", "4 weeks POST T (Median (IQR))","12 weeks POST T (Median (IQR))", "GMR 4 weeks (95% CI)", "GMR 12 weeks (95% CI)")
+Table2 <- rbind(colnames1, Table2)
+rownames1 <- c("DRUG", "Digoxin", "", "", "", "")
+rownames2 <- c("PARAMETER", "AUC 0-last (ng*min ml^-1)", "Cmax (ng ml^-1)", "T1/2(min)", "CL/F (mL min^-1)", "Tmax (min)")
+Table2 <- cbind(rownames1, rownames2, Table2)
+```
+Save out final adjusted digoxin data and NCA output in R format for plots and statistical analysis.
+```{r}
+write.csv(Table2, file = "_output/NCAPPC_summary.csv", row.names = FALSE)
+write.csv(ncaOutput, file = "_output/NCAPPC_output.csv", row.names = FALSE)
+save(ncaOutput,data_dig_adjusted,dig_summary,PK_analysis, PK_analysis_wide, file = "_output/NCA_analysis.RData")
+```

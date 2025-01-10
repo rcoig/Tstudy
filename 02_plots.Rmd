@@ -1,0 +1,137 @@
+---
+title:     "Cirrincione T Study - Figures"
+updated:   1/10/24
+author:    Rene coig
+output:    html_notebook
+---
+Study Description: The purpose of this project is to determine how testosterone affects other medications and the natural bacteria that lives in the gut.
+
+Notebook Description: Plots of summary data.
+
+R version 4.4.2 "Pile of Leaves"
+
+Load required packages.
+```{r}
+library(tidyverse)   
+library(Publish)  
+library(ggpubr)  
+library(ggthemes)   
+library(RColorBrewer)   
+library(tmaptools)  
+```
+Load in data
+```{r}
+rm(list = ls())#clearing environment
+load("_output/NCA_Analysis.RData")
+```
+Plotting a simple graph of mean digoxin plasma concentration and time.
+```{r}
+plot<-ggplot(dig_summary, aes(x = time_hr, y = mean_conc, 
+              group = factor(drug_visit_number_tru), color = factor(drug_visit_number_tru))) +
+  geom_point() +
+  geom_line() +
+  geom_errorbar(aes(ymin = mean_conc - SD_conc, ymax = mean_conc + SD_conc), 
+                position = position_dodge(width = 0.22)) +
+  labs(x = "Time after dose (hours)", 
+       y = "Concentration (ng/ml)", 
+       title = "Mean digoxin plasma concentrations", 
+       color = "Drug Visit") +
+  theme_classic()+
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position = "bottom")
+plot
+
+plot2<-ggplot(dig_summary%>%filter(time_hr<24), aes(x = time_hr, y = mean_conc, 
+              group = factor(drug_visit_number_tru), color = factor(drug_visit_number_tru))) +
+  geom_point(aes(color = factor(drug_visit_number_tru), shape = factor(drug_visit_number_tru))) + 
+  geom_line(aes(linetype = factor(drug_visit_number_tru), color = factor(drug_visit_number_tru))) + 
+  geom_errorbar(aes(ymin = mean_conc - SD_conc, ymax = mean_conc + SD_conc), 
+                position = position_dodge(width = 0.22)) +
+  labs(x = "Time after dose (hours)", 
+       y = "Concentration (ng/ml)", 
+       title = "Mean digoxin plasma concentrations", 
+       color = "Drug Visit") +
+  theme_classic()+
+  guides(linetype = "none",shape="none")+
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position = "bottom")+
+  scale_x_continuous(limits=c(0, 12), breaks=c(0, 4, 8, 12))
+
+
+log_plot <- ggplot(data = dig_summary, aes(x = time_hr, y = mean_conc, group = factor(drug_visit_number_tru))) + 
+  geom_point(aes(color = factor(drug_visit_number_tru), shape = factor(drug_visit_number_tru))) + 
+  geom_line(aes(linetype = factor(drug_visit_number_tru), color = factor(drug_visit_number_tru))) + 
+  labs(x = "Time after dose (hours)", y = "Concentration\n (ng/ml)") + 
+  theme_clean() + 
+  theme(plot.title = element_text(hjust = 2), legend.position = "none",  
+        text=element_text(size=12)) + 
+  scale_x_continuous(limits=c(0, 12), breaks=c(0, 4, 8, 12))
+  scale_y_log10()
+
+combined_plot<-plot2 +
+  annotation_custom(
+    grob = ggplotGrob(log_plot),
+    xmin = 6, 
+    xmax = 12, 
+    ymin = 0.7,
+    ymax = 1.8)
+combined_plot
+
+ggsave(filename = "Figures/mean_digoxin.png", plot = combined_plot, width = 10, height = 6, dpi = 600)
+```
+Plots by participant ID
+```{r}
+# Get unique participant IDs
+participant_ids <- unique(data_dig_adjusted$ID)
+
+# Loop through each participant and create/save the plot
+for (participant_id in participant_ids) {
+  # Filter data for the current participant
+  participant_data <- data_dig_adjusted %>%
+    filter(ID == participant_id)
+  
+  # Create the plot
+  plot <- ggplot(participant_data, aes(x = time_hr, y = conc_1ml_new, 
+              group = factor(drug_visit_number_tru), color = factor(drug_visit_number_tru))) +
+    geom_point() +
+    geom_line() +
+    labs(
+      x = "Time after dose (hours)", 
+      y = "Concentration (ng/ml)", 
+      title = paste("Digoxin plasma concentrations for Participant", participant_id), 
+      color = "Drug Visit"
+    ) +
+    theme_classic() +
+    theme(
+      plot.title = element_text(hjust = 0.5),
+      legend.position = "bottom"
+    )
+  plot
+  # Save the plot as a PNG file
+  ggsave(
+    filename = paste0("Figures/Participant_", participant_id, ".png"),
+    plot = plot,
+    width = 8,
+    height = 6,
+    dpi = 300
+  )
+}
+```
+Create spaghetti plots for individual metrics.
+```{r}
+ggplot(data = PK_analysis,
+       aes(x = factor(drug_visit_number_tru), y = Cl_obs)) +
+  geom_point(size=1) +
+  geom_line(aes(group = ID), size=0.5) +
+  theme_classic() +
+  labs(x = "", y = expression(Digoxin~CL/F~(ml~min^-1))) +
+  scale_y_continuous(position = "left", breaks = scales ::pretty_breaks(n=4)) +  guides(color=none)
+
+ggplot(data = PK_analysis,
+       aes(x = factor(drug_visit_number_tru), y = AUClast)) +
+  geom_point(size=1) +
+  geom_line(aes(group = ID), size=0.5) +
+  theme_classic() +
+  labs(x = "",   y = expression(Digoxin~AUC[0-last]~","~ng %.% h/ml)) +
+  scale_y_continuous(position = "left", breaks = scales ::pretty_breaks(n=4)) +  guides(color=none)
+```
