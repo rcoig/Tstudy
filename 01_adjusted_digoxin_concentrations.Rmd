@@ -1,19 +1,21 @@
 ---
 title:     "Cirrincione T Study - Adjusting digoxin data and calculating summaries"
-updated:   1/10/25
+updated:   1/17/25
 author:    Rene coig
 output:    html_notebook
 ---
 Study Description: The purpose of this project is to determine how testosterone affects other medications and the natural bacteria that lives in the gut.
 
-Notebook Description: Adjusting Digoxin data using ncappc and calculating resulting summary data.
+Notebook Description: QC of Digoxin data, imputing concentrations for nominal timepoints using the ncappc package and calculating resulting summary data.
 
 R version 4.4.2 "Pile of Leaves"
 
 Load required packages.
 ```{r}
-library(tidyverse)   
-library(ncappc) 
+library(tidyverse)#data wrangling 
+library(reshape2)#data wrangling
+library(ncappc)#non-compartmental analysis
+library(Publish)#ci.mean function
 ```
 Load in Digoxin data
 ```{r}
@@ -48,17 +50,49 @@ Lambda_zed <- ncaOutput %>% select(ID, drug_visit_number_tru, Lambda_z)
 data_dig_adjusted<-merge(data_dig_adjusted,Lambda_zed,by=c("ID","drug_visit_number_tru"))
 Lambda_zed
 ```
-Use the lambda_z value to calculate adjusted concentrations based on the actual time points using the equation: C = C(0) ∗ e^(−λ∗τ) where C(0) is the original concentratio.
-```{r}
-# Update concentration values using the first-order kinetics equation only for 24 and 48 hour values
-data_dig_adjusted$conc_1ml_new <- ifelse(data_dig_adjusted$time_hr %in% c(24, 48),
-  data_dig_adjusted$conc_1ml_adjust * exp(-data_dig_adjusted$Lambda_z * data_dig_adjusted$time_hr_actual),
-  data_dig_adjusted$conc_1ml_adjust
-)
+Use the lambda_z value to calculate imputed concentrations for nominal timepoints based on the observed time points using the equation: 
+C = C(0) ∗ e^(−λ∗τ) where C(0) is the original concentration.
 
-plot(data_dig_adjusted$conc_1ml_adjust~data_dig_adjusted$conc_1ml_new)# only lowest concentrations are affected as expected
+The 24 and 48 hour time points will be imputed for all individuals who have 24 and 48 hour data:
+```{r}
+# Impute the concentration values using the first-order kinetics equation for 24 and 48 hour concentrations, otherwise keeping the original concentrations
+data_dig_adjusted <- data_dig_adjusted %>%
+  mutate(
+    conc_1ml_imp = ifelse(
+      time_hr %in% c(24, 48),
+      round(conc_1ml_adjust * exp(-Lambda_z * time_hr_actual), 3),
+      conc_1ml_adjust
+    )
+  )
+
+plot(data_dig_adjusted$conc_1ml_adjust~data_dig_adjusted$conc_1ml_imp)# only lowest concentrations are affected as expected
 ```
-Re-run the ncappc package on the adjusted values to calculate new lambda_zed for ideal time points.
+The 12 hour time points will be imputed only for 3 participants who had early sampling at the nominal 12 hour timepoint (due to UWMC TRU staffing limitations). These are: 
+PID 7 Visit 3 (Note: this one is actually BLQ and will be unaffected anyway)
+PID 18 Visit 1
+PID 19 Visit 1 & 2
+```{r}
+# Update concentration values using the first-order kinetics equation for 12 hour values for select participant/drug visit combinations, otherwise keep the original concentration: 
+
+# Create a logical condition for the specific participant and drug visit combinations
+condition <- (data_dig_adjusted$ID == 7 & data_dig_adjusted$drug_visit_number_tru == 3) |
+             (data_dig_adjusted$ID == 18 & data_dig_adjusted$drug_visit_number_tru == 1) |
+             (data_dig_adjusted$ID == 19 & data_dig_adjusted$drug_visit_number_tru == 1) |
+             (data_dig_adjusted$ID == 19 & data_dig_adjusted$drug_visit_number_tru == 2)
+
+# Impute the concentration values using the first-order kinetics equation for select 12-hour values, otherwise keeping the first set of imputed values
+data_dig_adjusted <- data_dig_adjusted %>%
+  mutate(
+    conc_1ml_imp = ifelse(
+      condition & time_hr %in% 12,
+      round(conc_1ml_adjust * exp(-Lambda_z * time_hr_actual), 3),
+      conc_1ml_imp
+    )
+  )
+
+plot(data_dig_adjusted$conc_1ml_adjust~data_dig_adjusted$conc_1ml_imp)# only the additional 12 hour imputed timepoints were altered
+```
+Re-run the ncappc package on the adjusted values to calculate new lambda_zed for nominal time points.
 ```{r}
 ncappc(obsFile = data_dig_adjusted,
        str1Nm = "drug_visit_number_tru",
@@ -68,7 +102,7 @@ ncappc(obsFile = data_dig_adjusted,
        doseUnit = "ng",
        idNmObs = "ID",
        timeNmObs = "time_hr",
-       concNmObs = "conc_1ml_new",
+       concNmObs = "conc_1ml_imp",
        doseAmtNm = "dose",
        onlyNCA = TRUE,
        LambdaTimeRange = "NULL",
@@ -78,8 +112,7 @@ ncappc(obsFile = data_dig_adjusted,
        extrapolate = TRUE,
        gg_theme = theme_classic())
 
-Lambda_zed_new <- ncaOutput %>% select(ID, drug_visit_number_tru, Lambda_z)%>%
-  rename(Lambda_z_new=Lambda_z)
+Lambda_zed_new <- ncaOutput%>% select(ID, drug_visit_number_tru, Lambda_z)%>% rename(Lambda_z_new=Lambda_z)
 data_dig_adjusted<-merge(data_dig_adjusted,Lambda_zed_new,by=c("ID","drug_visit_number_tru"))
 Lambda_zed_new
 plot(data_dig_adjusted$Lambda_z~data_dig_adjusted$Lambda_z_new) # lambda_z has been adjusted
@@ -88,8 +121,8 @@ Generate a new dataset with columns for mean concentration and standard deviatio
 ```{r}
 dig_summary <- data_dig_adjusted %>%
   group_by(time_hr, drug_visit_number_tru) %>%
-  summarise(mean_conc = mean(conc_1ml_new, na.rm = TRUE), 
-            SD_conc = sd(conc_1ml_new, na.rm = TRUE))
+  summarise(mean_conc = mean(conc_1ml_imp, na.rm = TRUE), 
+            SD_conc = sd(conc_1ml_imp, na.rm = TRUE))
 ```
 Create a new dataframe containing data for summary table (Cmax, AUClast, HL_lambda_z (terminal half-life), and Cl_obs). 
 ```{r}

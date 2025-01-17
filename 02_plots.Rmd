@@ -1,6 +1,6 @@
 ---
 title:     "Cirrincione T Study - Figures"
-updated:   1/10/24
+updated:   1/17/24
 author:    Rene coig
 output:    html_notebook
 ---
@@ -28,18 +28,23 @@ Plotting a simple graph of mean digoxin plasma concentration and time.
 ```{r}
 plot<-ggplot(dig_summary, aes(x = time_hr, y = mean_conc, 
               group = factor(drug_visit_number_tru), color = factor(drug_visit_number_tru))) +
-  geom_point() +
-  geom_line() +
+  geom_point(size=2) +
+ geom_line(aes(linetype = factor(drug_visit_number_tru), color = factor(drug_visit_number_tru))) + 
   geom_errorbar(aes(ymin = mean_conc - SD_conc, ymax = mean_conc + SD_conc), 
                 position = position_dodge(width = 0.22)) +
   labs(x = "Time after dose (hours)", 
        y = "Concentration (ng/ml)", 
-       title = "Mean digoxin plasma concentrations", 
+       title = "Mean Digoxin plasma concentrations", 
        color = "Drug Visit") +
+  scale_x_continuous(breaks = c(seq(0, 8, by = 2), 12, 24, 48)) +
+  scale_color_manual(values = c("1" = "#F8766D", "2" = "#00BA38", "3" = "#619CFF")) +
+  guides(linetype = "none",shape="none")+
   theme_classic()+
   theme(plot.title = element_text(hjust = 0.5),
         legend.position = "bottom")
 plot
+
+ggsave(filename = "Figures/mean_digoxin_all_timepoints_linear.png", plot = plot, width = 12, height = 6, dpi = 600)
 
 plot2<-ggplot(dig_summary%>%filter(time_hr<24), aes(x = time_hr, y = mean_conc, 
               group = factor(drug_visit_number_tru), color = factor(drug_visit_number_tru))) +
@@ -49,23 +54,23 @@ plot2<-ggplot(dig_summary%>%filter(time_hr<24), aes(x = time_hr, y = mean_conc,
                 position = position_dodge(width = 0.22)) +
   labs(x = "Time after dose (hours)", 
        y = "Concentration (ng/ml)", 
-       title = "Mean digoxin plasma concentrations", 
+       title = "Mean Digoxin plasma concentrations", 
        color = "Drug Visit") +
   theme_classic()+
   guides(linetype = "none",shape="none")+
   theme(plot.title = element_text(hjust = 0.5),
         legend.position = "bottom")+
-  scale_x_continuous(limits=c(0, 12), breaks=c(0, 4, 8, 12))
+  scale_x_continuous(breaks = c(seq(0, 8, by = 2), 12)) 
 
 
-log_plot <- ggplot(data = dig_summary, aes(x = time_hr, y = mean_conc, group = factor(drug_visit_number_tru))) + 
+log_plot <- ggplot(data = dig_summary%>%filter(time_hr<24), aes(x = time_hr, y = mean_conc, group = factor(drug_visit_number_tru))) + 
   geom_point(aes(color = factor(drug_visit_number_tru), shape = factor(drug_visit_number_tru))) + 
   geom_line(aes(linetype = factor(drug_visit_number_tru), color = factor(drug_visit_number_tru))) + 
-  labs(x = "Time after dose (hours)", y = "Concentration\n (ng/ml)") + 
+  labs(x = "Time after dose (hours)", y = "log Concentration\n (ng/ml)") + 
   theme_clean() + 
   theme(plot.title = element_text(hjust = 2), legend.position = "none",  
         text=element_text(size=12)) + 
-  scale_x_continuous(limits=c(0, 12), breaks=c(0, 4, 8, 12))
+  scale_x_continuous(breaks = c(seq(0, 8, by = 2), 12)) +
   scale_y_log10()
 
 combined_plot<-plot2 +
@@ -77,9 +82,9 @@ combined_plot<-plot2 +
     ymax = 1.8)
 combined_plot
 
-ggsave(filename = "Figures/mean_digoxin.png", plot = combined_plot, width = 10, height = 6, dpi = 600)
+ggsave(filename = "Figures/mean_digoxin_intital_visit.png", plot = combined_plot, width = 10, height = 6, dpi = 600)
 ```
-Plots by participant ID
+Plots by participant ID for the original concentrations at the observed time points:
 ```{r}
 # Get unique participant IDs
 participant_ids <- unique(data_dig_adjusted$ID)
@@ -89,30 +94,86 @@ for (participant_id in participant_ids) {
   # Filter data for the current participant
   participant_data <- data_dig_adjusted %>%
     filter(ID == participant_id)
+  participant_time <- participant_data%>%select(ID,drug_visit_number_tru,time_hr,time_hr_actual,time_hr_diff)
   
   # Create the plot
-  plot <- ggplot(participant_data, aes(x = time_hr, y = conc_1ml_new, 
+  plot <- ggplot(participant_data, aes(x = time_hr_actual, y = conc_1ml_adjust, #observed time points and measured concentrations
               group = factor(drug_visit_number_tru), color = factor(drug_visit_number_tru))) +
-    geom_point() +
-    geom_line() +
+    geom_point(size=2) +
+    geom_line(aes(linetype = factor(drug_visit_number_tru), color = factor(drug_visit_number_tru))) + 
     labs(
       x = "Time after dose (hours)", 
       y = "Concentration (ng/ml)", 
       title = paste("Digoxin plasma concentrations for Participant", participant_id), 
       color = "Drug Visit"
     ) +
+    scale_y_continuous(limits = c(0, 3)) +
+    scale_x_continuous(breaks = c(seq(0, 8, by = 2), 12, 24, 48, 52), limits = c(0, 52)) +
+    scale_color_manual(values = c("1" = "#F8766D", "2" = "#00BA38", "3" = "#619CFF")) +
+    guides(linetype = "none",shape="none")+ 
     theme_classic() +
     theme(
       plot.title = element_text(hjust = 0.5),
-      legend.position = "bottom"
+      legend.position = "bottom",
+      text=element_text(size=14)
     )
-  plot
-  # Save the plot as a PNG file
+  print(plot)
+
+
+  # Save each plot as a PNG file
   ggsave(
-    filename = paste0("Figures/Participant_", participant_id, ".png"),
+    filename = paste0("Figures/Participant_", participant_id, "_actual.png"),
     plot = plot,
-    width = 8,
-    height = 6,
+    width = 12,
+    height = 8,
+    dpi = 300
+  )
+  #output a .csv for each participant with the nominal vs ideal times
+  write.csv(participant_time%>%filter(time_hr_diff!=0),paste0("_output/Participant_", participant_id, "_actualvnominal.csv"))
+  
+}
+```
+Plots by participant ID for the imputed concentrations at the nominal time points for comparison:
+```{r}
+# Get unique participant IDs
+participant_ids <- unique(data_dig_adjusted$ID)
+
+# Loop through each participant and create/save the plot
+for (participant_id in participant_ids) {
+  # Filter data for the current participant
+  participant_data <- data_dig_adjusted %>%
+    filter(ID == participant_id)
+
+  # Create the plot
+  plot <- ggplot(participant_data, aes(x = time_hr, y = conc_1ml_imp, #nominal time points and imputed concentrations
+              group = factor(drug_visit_number_tru), color = factor(drug_visit_number_tru))) +
+    geom_point(size=2) +
+    geom_line(aes(linetype = factor(drug_visit_number_tru), color = factor(drug_visit_number_tru))) + 
+    labs(
+      x = "Time after dose (hours)", 
+      y = "Concentration (ng/ml)", 
+      title = paste("Digoxin plasma concentrations for Participant", participant_id,"(imputed values)"), 
+      color = "Drug Visit"
+    ) +
+    scale_y_continuous(limits = c(0, 3)) +
+    scale_x_continuous(breaks = c(seq(0, 8, by = 2), 12, 24, 48, 52), limits = c(0, 52)) +
+    scale_color_manual(values = c("1" = "#F8766D", "2" = "#00BA38", "3" = "#619CFF")) +
+    guides(linetype = "none",shape="none")+ 
+    theme_classic() +
+    theme(
+      plot.title = element_text(hjust = 0.5),
+      legend.position = "bottom",
+      text=element_text(size=14)
+    )
+  print(plot)
+
+
+  # Save each plot as a PNG file
+  ggsave(
+    filename = paste0("Figures/Participant_", participant_id, "_imputed.png"),
+    plot = plot,
+    width = 12,
+    height = 8,
     dpi = 300
   )
 }

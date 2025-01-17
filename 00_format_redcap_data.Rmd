@@ -1,6 +1,6 @@
 ---
 title:     "Cirrincione T Study - Formatting redcap data"
-updated:   1/10/25
+updated:   1/17/25
 author:    Rene coig
 output:    html_notebook
 ---
@@ -19,9 +19,7 @@ Load in raw data files.
 ```{r}
 rm(list = ls())#clearing environment
 
-data<- read.csv("_data/data_T_redcap_20250108.csv", header = TRUE)
-
-data<- read.csv("_data/data_T_redcap_20250108.csv", header = TRUE)%>% #redcap data
+data<- read.csv("_data/data_T_redcap_20250116.csv", header = TRUE)%>% #redcap data
   mutate(date_dv = mdy(date_dv),
          return_date = mdy(return_date)) # Converts the date to a standard format
 
