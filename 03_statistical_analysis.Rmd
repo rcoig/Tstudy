@@ -1,6 +1,6 @@
 ---
 title:     "Cirrincione T Study - Statistical Analysis"
-updated:   1/10/24
+updated:   1/24/24
 author:    Rene coig
 output:    html_notebook
 ---
@@ -36,7 +36,7 @@ Tmax_3
 Test_tmax1_3 <- wilcox.test(Tmax_1,Tmax_3,paired = TRUE)
 Test_tmax1_3
 ```
-Test AUC with paired Wilcoxon signed rank test.
+Test AUC (0-last) with paired Wilcoxon signed rank test.
 ```{r}
 Test_AUC1_2<-PK_analysis_wide%>%
   select(AUClast_1, AUClast_2)%>%
@@ -56,4 +56,25 @@ AUClast_1
 AUClast_3
 Test_AUC1_3 <- wilcox.test(AUClast_1,AUClast_3,paired = TRUE)
 Test_AUC1_3
+```
+Test AUC (0-4) with paired Wilcoxon signed rank test.
+```{r}
+Test_AUC4_1_2<-PK_analysis_wide%>%
+  select(AUC4_1, AUC4_2)%>%
+  filter(!(is.na(AUC4_2))) #N = 11
+AUC4_1 <- Test_AUC4_1_2$AUC4_1
+AUC4_2 <- Test_AUC4_1_2$AUC4_2
+AUC4_1
+AUC4_2
+Test_AUC4_1_2 <- wilcox.test(AUC4_1,AUC4_2,paired = TRUE)
+Test_AUC4_1_2
+
+Test_AUC4_1_3<-PK_analysis_wide%>%
+  select(AUC4_1, AUC4_3) #N = 14
+AUC4_1 <- Test_AUC4_1_3$AUC4_1
+AUC4_3 <- Test_AUC4_1_3$AUC4_3
+AUC4_1
+AUC4_3
+Test_AUC4_1_3 <- wilcox.test(AUC4_1,AUC4_3,paired = TRUE)
+Test_AUC4_1_3
 ```
