@@ -1,6 +1,6 @@
 ---
 title:     "Cirrincione T Study - Figures"
-updated:   1/17/24
+updated:   2/3/25
 author:    Rene coig
 output:    html_notebook
 ---
@@ -24,65 +24,83 @@ Load in data
 rm(list = ls())#clearing environment
 load("_output/NCA_Analysis.RData")
 ```
-Plotting a simple graph of mean digoxin plasma concentration and time.
+Figure 2, Mean Digoxin plasma concentration (linear) over time.
 ```{r}
-plot<-ggplot(dig_summary, aes(x = time_hr, y = mean_conc, 
-              group = factor(drug_visit_number_tru), color = factor(drug_visit_number_tru))) +
-  geom_point(size=2) +
- geom_line(aes(linetype = factor(drug_visit_number_tru), color = factor(drug_visit_number_tru))) + 
-  geom_errorbar(aes(ymin = mean_conc - SD_conc, ymax = mean_conc + SD_conc), 
-                position = position_dodge(width = 0.22)) +
+plot_large <- ggplot(dig_summary, aes(x = time_hr, y = mean_conc, 
+              group = factor(drug_visit_number_tru), 
+              color = factor(drug_visit_number_tru), 
+              shape = factor(drug_visit_number_tru), 
+              linetype = factor(drug_visit_number_tru))) + 
+  geom_point(aes(x = time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.1 - 0.1)) +
+  geom_line() + 
+  geom_errorbar(aes(ymin = mean_conc, ymax = mean_conc + SD_conc,
+                    x = time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.1 - 0.1),
+                width = 0, linetype = "solid") +
+  geom_segment(aes(x = (time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.1 - 0.1) - 0.1, 
+                   xend = (time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.1 - 0.1) + 0.1, 
+                   y = mean_conc + SD_conc, yend = mean_conc + SD_conc, 
+                   color = factor(drug_visit_number_tru)), linetype = "solid", size = 0.5) +  # Horizontal cap on top
   labs(x = "Time after dose (hours)", 
        y = "Concentration (ng/ml)", 
-       title = "Mean Digoxin plasma concentrations", 
-       color = "Drug Visit") +
-  scale_x_continuous(breaks = c(seq(0, 8, by = 2), 12, 24, 48)) +
-  scale_color_manual(values = c("1" = "#F8766D", "2" = "#00BA38", "3" = "#619CFF")) +
-  guides(linetype = "none",shape="none")+
+       title = "",
+       color = NULL, linetype = NULL, shape = NULL) +  # Remove legend title
+  scale_x_continuous(breaks = c(seq(0, 8, by = 2), 12, 24, 48, 50), limits = c(-0.5, 50), expand = c(0, 0)) +
+  scale_y_continuous(breaks = seq(0, 2, by = 0.5), limits = c(-0.1, 2), expand = c(0, 0)) +
+  scale_color_manual(values = c("1" = "black", "2" = "gray30", "3" = "gray30"),
+                     labels = c("1" = "Pre-testosterone", "2" = "1 month post-testosterone", 
+                                  "3" = "3 months post-testosterone")) +
+  scale_linetype_manual(values = c("1" = "solid", "2" = "dotted", "3" = "dashed"),
+                        labels = c("1" = "Pre-testosterone", "2" = "1 month post-testosterone", 
+                                  "3" = "3 months post-testosterone")) +
+  scale_shape_manual(values = c("1" = 16, "2" = 2, "3" = 0),
+                     labels = c("1" = "Pre-testosterone", "2" = "1 month post-testosterone", 
+                                  "3" = "3 months post-testosterone")) +
   theme_classic()+
-  theme(plot.title = element_text(hjust = 0.5),
-        legend.position = "bottom")
-plot
+  theme(legend.position = c(0.6, 0.4),  # Inside the plot
+        legend.justification = c(0, 1),  # Align legend top-left
+        legend.direction = "vertical",
+        legend.box = "vertical",
+        legend.background = element_rect(fill = "white", color = "white"),
+        legend.margin = margin(5, 5, 5, 5),
+        plot.margin = margin(5, 10, 5, 5),
+        axis.text = element_text(size = 14),  # Axis tick labels
+        axis.title = element_text(size = 16),  # Axis titles
+        legend.text = element_text(size = 14)  # Legend text
+)
 
-ggsave(filename = "Figures/mean_digoxin_all_timepoints_linear.png", plot = plot, width = 12, height = 6, dpi = 600)
+  guides(color = guide_legend(ncol = 1),
+         linetype = guide_legend(ncol = 1),
+         shape = guide_legend(ncol = 1))
 
-plot2<-ggplot(dig_summary%>%filter(time_hr<24), aes(x = time_hr, y = mean_conc, 
-              group = factor(drug_visit_number_tru), color = factor(drug_visit_number_tru))) +
+
+
+
+
+plot_inset <- ggplot(data = dig_summary%>%filter(time_hr<8), aes(x = time_hr, y = mean_conc, group = factor(drug_visit_number_tru))) + 
   geom_point(aes(color = factor(drug_visit_number_tru), shape = factor(drug_visit_number_tru))) + 
   geom_line(aes(linetype = factor(drug_visit_number_tru), color = factor(drug_visit_number_tru))) + 
-  geom_errorbar(aes(ymin = mean_conc - SD_conc, ymax = mean_conc + SD_conc), 
-                position = position_dodge(width = 0.22)) +
-  labs(x = "Time after dose (hours)", 
-       y = "Concentration (ng/ml)", 
-       title = "Mean Digoxin plasma concentrations", 
-       color = "Drug Visit") +
-  theme_classic()+
-  guides(linetype = "none",shape="none")+
-  theme(plot.title = element_text(hjust = 0.5),
-        legend.position = "bottom")+
-  scale_x_continuous(breaks = c(seq(0, 8, by = 2), 12)) 
+  labs(x = "Time after dose (hours)", y = "Concentration ( ng/ml )") + 
+  scale_color_manual(values = c("1" = "black", "2" = "gray30", "3" = "gray30")) +
+  scale_shape_manual(values = c("1" = 16, "2" = 2, "3" = 0)) +
+  theme_clean()+
+  theme(plot.title = element_text(hjust = 2), 
+              legend.position = "none",  
+              text=element_text(size=12),
+              plot.margin = margin(5, 10, 5, 5)) + 
+  scale_x_continuous(breaks = c(seq(0, 6, by = 2)), limits = c(0, 6), expand = c(0, 0))
 
-
-log_plot <- ggplot(data = dig_summary%>%filter(time_hr<24), aes(x = time_hr, y = mean_conc, group = factor(drug_visit_number_tru))) + 
-  geom_point(aes(color = factor(drug_visit_number_tru), shape = factor(drug_visit_number_tru))) + 
-  geom_line(aes(linetype = factor(drug_visit_number_tru), color = factor(drug_visit_number_tru))) + 
-  labs(x = "Time after dose (hours)", y = "log Concentration\n (ng/ml)") + 
-  theme_clean() + 
-  theme(plot.title = element_text(hjust = 2), legend.position = "none",  
-        text=element_text(size=12)) + 
-  scale_x_continuous(breaks = c(seq(0, 8, by = 2), 12)) +
-  scale_y_log10()
-
-combined_plot<-plot2 +
+Fig2<-plot_large +
   annotation_custom(
-    grob = ggplotGrob(log_plot),
-    xmin = 6, 
-    xmax = 12, 
-    ymin = 0.7,
-    ymax = 1.8)
-combined_plot
+    grob = ggplotGrob(plot_inset),
+    xmin = 24, 
+    xmax = 48, 
+    ymin = 0.8,
+    ymax = 1.9)
+Fig2
 
-ggsave(filename = "Figures/mean_digoxin_intital_visit.png", plot = combined_plot, width = 10, height = 6, dpi = 600)
+ggsave(filename = "Figures/Figure_2.png", plot = Fig2, width = 12, height = 6, dpi = 600)
+# Save the plot as a PDF
+ggsave("Figures/Figure_2.pdf", plot = Fig2, width = 12, height = 6)
 ```
 Plots by participant ID for the original concentrations at the observed time points:
 ```{r}
@@ -196,3 +214,23 @@ ggplot(data = PK_analysis,
   labs(x = "",   y = expression(Digoxin~AUC[0-last]~","~ng %.% h/ml)) +
   scale_y_continuous(position = "left", breaks = scales ::pretty_breaks(n=4)) +  guides(color=none)
 ```
+Correlation plot between 24h CrCL and the Ae of digoxin 
+```{r}
+# Calculate correlation
+cor_value_spearman <- cor(data_dig_urine$crcl_24h, data_dig_urine$Cl_R, use = "complete.obs", method = "spearman")
+cor_value_pearsons <- cor(data_dig_urine$crcl_24h, data_dig_urine$Cl_R, use = "complete.obs", method = "pearson")
+
+plot<-ggplot(data_dig_urine, aes(x = crcl_24h, y = Cl_R, shape = as.factor(drug_visit_number_tru), color = as.factor(drug_visit_number_tru))) +
+  geom_point(alpha = 0.6, size =2) +  # Scatter plot with different shapes and colors for visits
+  #geom_smooth(method = "lm", se = TRUE, color = "black") +  # Regression line
+  labs(title = paste("Pearson's r = ", round(cor_value_pearsons, 2), "\nSpearman's r = ", round(cor_value_spearman, 2)), 
+       x = "Creatinine Clearance (ml/min)", 
+       y = "Digoxin Renal Clearance (ml/min)", 
+       shape = "Visit Number", 
+       color = "Visit Number") +  # Add legend labels
+  theme_classic()
+plot
+ggsave(filename = "Figures/corr_digoxin_creatinine.png", plot = plot, width = 6, height = 6, dpi = 600)
+```
+
+
