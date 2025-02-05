@@ -1,6 +1,6 @@
 ---
 title:     "Cirrincione T Study - Imputing digoxin plasma data and calculating summaries"
-updated:   2/3/25
+updated:   2/5/25
 author:    Rene coig
 output:    html_notebook
 ---
@@ -161,6 +161,11 @@ summary_dig_plasma <- data_dig_adjusted %>%
     median_conc = round(median(conc_1ml_imp, na.rm = TRUE), 3),
     IQR_conc = round(IQR(conc_1ml_imp, na.rm = TRUE), 3)#spread between 25th and 75th percentile
   )
+```
+Unit conversions: CL/F from ml/hr -> L/min; Vd/F from ml -> L
+```{r}
+ncaOutput$Cl_obs<-ncaOutput$Cl_obs/1000/60
+ncaOutput$Vz_obs<-ncaOutput$Vz_obs/1000
 ```
 Create a new dataframe containing data for results summary table: 
 (Cmax, AUC (0-4), AUC (0-48), AUC(0-inf), HL_lambda_z (terminal half-life), Cl_obs (CL/F) and  Vz_obs (Volume of distribution)). Reshape the data from long to wide format. 
