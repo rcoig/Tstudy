@@ -1,0 +1,58 @@
+---
+title:     "Cirrincione T Study - Statistical Analysis"
+updated:   2/5/25
+author:    Rene coig
+output:    html_notebook
+---
+Study Description: The purpose of this project is to determine how testosterone affects other medications and the natural bacteria that lives in the gut.
+
+Notebook Description: Assemble tables for publication. 
+
+R version 4.4.2 "Pile of Leaves"
+
+Load in summary data for table export
+```{r}
+rm(list = ls())#clearing environment
+load("_output/results_urine.RData")
+load("_output/results_plasma.RData")
+```
+Assemble Table2, Digoxin Results
+```{r}
+Table2 <- matrix(nrow=8, ncol=0)
+Table2 <- cbind(results_med_1, results_geo_1, results_mean_1,
+                results_med_2, results_geo_2, results_mean_2,
+                results_med_3, results_geo_3, results_mean_3,
+                results_GMR1_2, results_GMR1_3, Table2)
+
+colnames1 <- c("PRE T (Median (IQR))", "PRE T (Geo Mean (95% CI))",  "PRE T (Mean (SD))", 
+               "4 weeks POST T (Median (IQR))", "4 weeks POST T (Geo Mean (95% CI))", "4 weeks POST T (Mean (SD))",
+               "12 weeks POST T (Median (IQR))", "12 weeks POST T Geo Mean (95% CI))", "12 weeks POST T (Mean (SD))",
+               "GMR 4 weeks (95% CI)", "GMR 12 weeks (95% CI)")
+Table2 <- rbind(colnames1, Table2)
+rownames1 <- c("DRUG", "Digoxin", "", "", "", "", "", "", "")
+rownames2 <- c("PARAMETER", "AUC 0-48 (ng*h)/ml", "AUC 0-4 (ng*h)/ml", 
+               "Cmax (ng/ml)", "CL/F (L/min)", "Half-life (h)", "AUC 0-inf (ng*h)/ml","Vd/F (L)", "Tmax (h)")
+
+Table2 <- cbind(rownames1, rownames2, Table2)
+```
+Assemble a table with all of the estimated digoxin pharmacokinetic parameters
+```{r}
+Table3 <- matrix(nrow=2, ncol=0)
+Table3 <- cbind(results_Umed_1, results_Ugeo_1, results_Umean_1,
+                results_Umed_2, results_Ugeo_2, results_Umean_2,
+                results_Umed_3, results_Ugeo_3, results_Umean_3,
+                results_UGMR1_2, results_UGMR1_3, Table3)
+
+rownames1 <- c("", "")
+rownames2 <- c("Cl Renal (ml/min)", "Cl Secretion (ml/min)")
+Table3 <- cbind(rownames1, rownames2, Table3)
+```
+Combine Table 2 and 3 into one big table
+```{r}
+Table2 <- rbind(Table2, setNames(Table3, names(Table2)))
+
+```
+Save out final adjusted Digoxin data and NCA output in R format for plots and statistical analysis.
+```{r}
+write.table(Table2, file = "_output/Table2.csv", row.names = FALSE, col.names=FALSE, sep = ",")
+```
