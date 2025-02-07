@@ -1,6 +1,6 @@
 ---
 title:     "Cirrincione T Study - Imputing digoxin plasma data and calculating summaries"
-updated:   2/5/25
+updated:   2/7/25
 author:    Rene coig
 output:    html_notebook
 ---
@@ -201,8 +201,8 @@ PK_analysis_wide <- PK_analysis_wide %>%
 ```
 Make a list of the parameters for which summary results are needed.
 ```{r}
-parameters <- c("AUClast", "AUC4", "Cmax", "Cl_obs", "HL_Lambda_z", "AUCINF_obs", "Vz_obs", "Tmax")
-GMR_parameters <- c("AUClast_ratio", "AUC4_ratio", "Cmax_ratio", "Cl_obs_ratio", "HL_Lambda_z_ratio", "AUCinf_ratio", "Vz_obs_ratio")
+parameters <- c("AUC4", "AUClast", "AUCINF_obs", "Cmax", "Cl_obs", "HL_Lambda_z", "Vz_obs", "Tmax")
+GMR_parameters <- c("AUC4_ratio", "AUClast_ratio", "AUCinf_ratio","Cmax_ratio", "Cl_obs_ratio", "HL_Lambda_z_ratio",  "Vz_obs_ratio")
 ```
 Calculate geometric means and 95% CI for the individual parameters pre and post T. Filter out the individuals that have NA values.
 ```{r}
@@ -228,20 +228,24 @@ results_med_1 <- as.data.frame(sapply(parameters, function(param) medians(PK_ana
 results_med_2 <- as.data.frame(sapply(parameters, function(param) medians(PK_analysis_wide[[paste0(param, "_2")]])))
 results_med_3 <- as.data.frame(sapply(parameters, function(param) medians(PK_analysis_wide[[paste0(param, "_3")]])))
 ```
-Calculate GMRs and 90% CI.
+Calculate GMRs with both 90% and 95% CI.
 ```{r}
 source("_source/geometric_mean_90CI.R")
 # Compute geometric mean ratios for visit 1 vs visit 2 and visit 1 vs visit 3
-results_GMR1_2 <- sapply(GMR_parameters, function(col) geo90(PK_analysis_wide[[paste0(col, "1_2")]]))
-results_GMR1_3 <- sapply(GMR_parameters, function(col) geo90(PK_analysis_wide[[paste0(col, "1_3")]]))
+results_GMR1_2_90 <- sapply(GMR_parameters, function(col) geo90(PK_analysis_wide[[paste0(col, "1_2")]]))
+results_GMR1_3_90 <- sapply(GMR_parameters, function(col) geo90(PK_analysis_wide[[paste0(col, "1_3")]]))
+results_GMR1_2_95 <- sapply(GMR_parameters, function(col) geo95(PK_analysis_wide[[paste0(col, "1_2")]]))
+results_GMR1_3_95 <- sapply(GMR_parameters, function(col) geo95(PK_analysis_wide[[paste0(col, "1_3")]]))
 
 # Add Tmax_GMR as "NA"
-results_GMR1_2 <- as.data.frame(c(results_GMR1_2, Tmax_GMR1_2 = "NA"))
-results_GMR1_3 <- as.data.frame(c(results_GMR1_3, Tmax_GMR1_3 = "NA"))
+results_GMR1_2_90 <- as.data.frame(c(results_GMR1_2_90, Tmax_GMR1_2 = "NA"))
+results_GMR1_3_90 <- as.data.frame(c(results_GMR1_3_90, Tmax_GMR1_3 = "NA"))
+results_GMR1_2_95 <- as.data.frame(c(results_GMR1_2_95, Tmax_GMR1_2 = "NA"))
+results_GMR1_3_95 <- as.data.frame(c(results_GMR1_3_95, Tmax_GMR1_3 = "NA"))
 ```
 Save data frame in R format for reloading in other notebooks.
 ```{r}
 save(data_dig_adjusted,summary_dig_plasma, file = "_output/data_for_plots.RData")
-save(results_mean_1,results_mean_2,results_mean_3,results_med_1,results_med_2,results_med_3, results_geo_1,results_geo_2,results_geo_3,results_GMR1_2,results_GMR1_3, file = "_output/results_plasma.RData")
+save(results_mean_1,results_mean_2,results_mean_3,results_med_1,results_med_2,results_med_3, results_geo_1,results_geo_2,results_geo_3,results_GMR1_2_90, results_GMR1_3_90, results_GMR1_2_95, results_GMR1_3_95, file = "_output/results_plasma.RData")
 save(ncaOutput, file = "_output/NCA_Analysis.RData")
 ```

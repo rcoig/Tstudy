@@ -1,6 +1,6 @@
 ---
 title:     "Cirrincione T Study - Figures"
-updated:   2/3/25
+updated:   2/7/25
 author:    Rene coig
 output:    html_notebook
 ---
@@ -23,49 +23,45 @@ Load in data
 ```{r}
 rm(list = ls())#clearing environment
 load("_output/NCA_Analysis.RData")
+load("_output/data_for_plots.RData")
 ```
-Figure 2, Mean Digoxin plasma concentration (linear) over time.
+Figure 2, Mean Digoxin plasma concentration (linear) over time with flipped axes
 ```{r}
-plot_large <- ggplot(dig_summary, aes(x = time_hr, y = mean_conc, 
+plot_large <- ggplot(summary_dig_plasma, aes(x = time_hr, y = mean_conc, 
               group = factor(drug_visit_number_tru), 
-              color = factor(drug_visit_number_tru), 
-              shape = factor(drug_visit_number_tru), 
               linetype = factor(drug_visit_number_tru))) + 
-  geom_point(aes(x = time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.1 - 0.1)) +
-  geom_line() + 
-  geom_errorbar(aes(ymin = mean_conc, ymax = mean_conc + SD_conc,
-                    x = time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.1 - 0.1),
-                width = 0, linetype = "solid") +
-  geom_segment(aes(x = (time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.1 - 0.1) - 0.1, 
-                   xend = (time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.1 - 0.1) + 0.1, 
-                   y = mean_conc + SD_conc, yend = mean_conc + SD_conc, 
-                   color = factor(drug_visit_number_tru)), linetype = "solid", size = 0.5) +  # Horizontal cap on top
+  geom_point(aes(x = time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.1 - 0.3),color = "black",size=0.5) +
+  geom_line(aes(x = time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.1 - 0.3)) + 
+  geom_errorbar(data = summary_dig_plasma %>% filter(drug_visit_number_tru != 3), 
+                aes(ymin = mean_conc, ymax = mean_conc + SD_conc,
+                    x = time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.1 - 0.3),
+                width = 0, linewidth = 0.2, linetype = "solid") +
+  geom_errorbar(data = summary_dig_plasma %>% filter(drug_visit_number_tru == 3), 
+                aes(ymin = mean_conc - SD_conc, ymax = mean_conc,
+                    x = time_hr + 3 * 0.1 - 0.3),
+                width = 0, linewidth = 0.2, linetype = "solid") +
   labs(x = "Time after dose (hours)", 
        y = "Concentration (ng/ml)", 
        title = "",
-       color = NULL, linetype = NULL, shape = NULL) +  # Remove legend title
-  scale_x_continuous(breaks = c(seq(0, 8, by = 2), 12, 24, 48, 50), limits = c(-0.5, 50), expand = c(0, 0)) +
-  scale_y_continuous(breaks = seq(0, 2, by = 0.5), limits = c(-0.1, 2), expand = c(0, 0)) +
-  scale_color_manual(values = c("1" = "black", "2" = "gray30", "3" = "gray30"),
-                     labels = c("1" = "Pre-testosterone", "2" = "1 month post-testosterone", 
-                                  "3" = "3 months post-testosterone")) +
+       color = "black", linetype = NULL, shape = NULL) +  # Remove legend title
+  scale_x_continuous(breaks = c(seq(0, 8, by = 2), 12, 24, 48), limits = c(-0.5, 48), expand = c(0, 0)) +
+  scale_y_continuous(breaks = seq(0, 2, by = 0.5), limits = c(-0.2, 2), expand = c(0, 0)) +
   scale_linetype_manual(values = c("1" = "solid", "2" = "dotted", "3" = "dashed"),
-                        labels = c("1" = "Pre-testosterone", "2" = "1 month post-testosterone", 
-                                  "3" = "3 months post-testosterone")) +
-  scale_shape_manual(values = c("1" = 16, "2" = 2, "3" = 0),
-                     labels = c("1" = "Pre-testosterone", "2" = "1 month post-testosterone", 
-                                  "3" = "3 months post-testosterone")) +
+                        labels = c("1" = "Pre-testosterone", "2" = "1 month of testosterone", 
+                                  "3" = "3 months of testosterone")) +
   theme_classic()+
-  theme(legend.position = c(0.6, 0.4),  # Inside the plot
-        legend.justification = c(0, 1),  # Align legend top-left
-        legend.direction = "vertical",
-        legend.box = "vertical",
-        legend.background = element_rect(fill = "white", color = "white"),
-        legend.margin = margin(5, 5, 5, 5),
+  theme(#legend.position = c(0.6, 0.4),  # Inside the plot
+        #legend.justification = c(0, 1),  # Align legend top-left
+        #legend.direction = "vertical",
+        #legend.box = "vertical",
+        #legend.background = element_rect(fill = "white", color = "white"),
+        #legend.margin = margin(5, 5, 5, 5),
         plot.margin = margin(5, 10, 5, 5),
-        axis.text = element_text(size = 14),  # Axis tick labels
+        axis.text = element_text(size = 14, color = "black"),  # Axis tick labels # Makes axis tick labels black
         axis.title = element_text(size = 16),  # Axis titles
-        legend.text = element_text(size = 14)  # Legend text
+        legend.text = element_text(size = 14),
+        legend.position = "none"  # Removes the legend
+# Legend text
 )
 
   guides(color = guide_legend(ncol = 1),
@@ -76,25 +72,117 @@ plot_large <- ggplot(dig_summary, aes(x = time_hr, y = mean_conc,
 
 
 
-plot_inset <- ggplot(data = dig_summary%>%filter(time_hr<8), aes(x = time_hr, y = mean_conc, group = factor(drug_visit_number_tru))) + 
-  geom_point(aes(color = factor(drug_visit_number_tru), shape = factor(drug_visit_number_tru))) + 
-  geom_line(aes(linetype = factor(drug_visit_number_tru), color = factor(drug_visit_number_tru))) + 
-  labs(x = "Time after dose (hours)", y = "Concentration ( ng/ml )") + 
-  scale_color_manual(values = c("1" = "black", "2" = "gray30", "3" = "gray30")) +
-  scale_shape_manual(values = c("1" = 16, "2" = 2, "3" = 0)) +
-  theme_clean()+
+plot_inset <- ggplot(summary_dig_plasma%>%filter(time_hr<8), aes(x = time_hr, y = mean_conc, 
+              group = factor(drug_visit_number_tru), 
+              linetype = factor(drug_visit_number_tru))) + 
+  geom_point(aes(x = time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.05 - 0.05),color = "black",size=0.5) +
+  geom_line(aes(x = time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.05 - 0.05)) + 
+  geom_errorbar(aes(ymin = mean_conc, ymax = mean_conc + SD_conc,
+                    x = time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.05 - 0.05),
+                width = 0, linewidth = 0.2, linetype = "solid") +
+  labs(x = "", y = "Concentration ( ng/ml )") + 
+  theme_classic()+
   theme(plot.title = element_text(hjust = 2), 
               legend.position = "none",  
               text=element_text(size=12),
-              plot.margin = margin(5, 10, 5, 5)) + 
-  scale_x_continuous(breaks = c(seq(0, 6, by = 2)), limits = c(0, 6), expand = c(0, 0))
+              axis.text = element_text(color = "black"),  # Makes axis tick labels black
+              plot.margin = margin(10, 10, 5, 10),
+              plot.background = element_rect(color = "black", fill = NA, linewidth = 0.1)) +
+  scale_y_continuous(breaks = seq(0, 2, by = 0.5), limits = c(-0.1, 2), expand = c(0, 0)) +
+  scale_x_continuous(
+  breaks = c(seq(0, 6, by = 2), 0.5, 1, 1.5),
+  limits = c(-0.05, 6.2),
+  expand = c(0, 0),
+  labels = function(x) ifelse(x %% 1 == 0, as.character(x), format(x, nsmall = 1)))+
+  scale_linetype_manual(values = c("1" = "solid", "2" = "dotted", "3" = "dashed"))
+
 
 Fig2<-plot_large +
   annotation_custom(
     grob = ggplotGrob(plot_inset),
-    xmin = 24, 
-    xmax = 48, 
-    ymin = 0.8,
+    xmin = 20, 
+    xmax = 46, 
+    ymin = 0.5,
+    ymax = 1.9)
+Fig2
+
+ggsave(filename = "Figures/Figure_2.png", plot = Fig2, width = 12, height = 6, dpi = 600)
+# Save the plot as a PDF
+ggsave("Figures/Figure_2.pdf", plot = Fig2, width = 12, height = 6)
+```
+Figure 2, Mean Digoxin plasma concentration (linear) over time without flipped axes
+```{r}
+plot_large <- ggplot(summary_dig_plasma, aes(x = time_hr, y = mean_conc, 
+              group = factor(drug_visit_number_tru), 
+              linetype = factor(drug_visit_number_tru))) + 
+  geom_point(aes(x = time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.1 - 0.3),color = "black",size=0.5) +
+  geom_line(aes(x = time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.1 - 0.3)) + 
+  geom_errorbar(aes(ymin = mean_conc, ymax = mean_conc + SD_conc,
+                    x = time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.1 - 0.3),
+                width = 0, linewidth = 0.2, linetype = "solid") +
+  labs(x = "Time after dose (hours)", 
+       y = "Concentration (ng/ml)", 
+       title = "",
+       color = "black", linetype = NULL, shape = NULL) +  # Remove legend title
+  scale_x_continuous(breaks = c(seq(0, 8, by = 2), 12, 24, 48), limits = c(-0.5, 48), expand = c(0, 0)) +
+  scale_y_continuous(breaks = seq(0, 2, by = 0.5), limits = c(-0.1, 2), expand = c(0, 0)) +
+  scale_linetype_manual(values = c("1" = "solid", "2" = "dotted", "3" = "dashed"),
+                        labels = c("1" = "Pre-testosterone", "2" = "1 month of testosterone", 
+                                  "3" = "3 months of testosterone")) +
+  theme_classic()+
+  theme(#legend.position = c(0.6, 0.4),  # Inside the plot
+        #legend.justification = c(0, 1),  # Align legend top-left
+        #legend.direction = "vertical",
+        #legend.box = "vertical",
+        #legend.background = element_rect(fill = "white", color = "white"),
+        #legend.margin = margin(5, 5, 5, 5),
+        plot.margin = margin(5, 10, 5, 5),
+        axis.text = element_text(size = 14, color = "black"),  # Axis tick labels # Makes axis tick labels black
+        axis.title = element_text(size = 16),  # Axis titles
+        legend.text = element_text(size = 14),
+        legend.position = "none"  # Removes the legend
+# Legend text
+)
+
+  guides(color = guide_legend(ncol = 1),
+         linetype = guide_legend(ncol = 1),
+         shape = guide_legend(ncol = 1))
+
+
+
+
+
+plot_inset <- ggplot(summary_dig_plasma%>%filter(time_hr<8), aes(x = time_hr, y = mean_conc, 
+              group = factor(drug_visit_number_tru), 
+              linetype = factor(drug_visit_number_tru))) + 
+  geom_point(aes(x = time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.05 - 0.05),color = "black",size=0.5) +
+  geom_line(aes(x = time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.05 - 0.05)) + 
+  geom_errorbar(aes(ymin = mean_conc, ymax = mean_conc + SD_conc,
+                    x = time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.05 - 0.05),
+                width = 0, linewidth = 0.2, linetype = "solid") +
+  labs(x = "", y = "Concentration ( ng/ml )") + 
+  theme_classic()+
+  theme(plot.title = element_text(hjust = 2), 
+              legend.position = "none",  
+              text=element_text(size=12),
+              axis.text = element_text(color = "black"),  # Makes axis tick labels black
+              plot.margin = margin(10, 10, 5, 10),
+              plot.background = element_rect(color = "black", fill = NA, linewidth = 0.1)) +
+  scale_y_continuous(breaks = seq(0, 2, by = 0.5), limits = c(-0.1, 2), expand = c(0, 0)) +
+  scale_x_continuous(
+  breaks = c(seq(0, 6, by = 2), 0.5, 1, 1.5),
+  limits = c(-0.05, 6.2),
+  expand = c(0, 0),
+  labels = function(x) ifelse(x %% 1 == 0, as.character(x), format(x, nsmall = 1)))+
+  scale_linetype_manual(values = c("1" = "solid", "2" = "dotted", "3" = "dashed"))
+
+
+Fig2<-plot_large +
+  annotation_custom(
+    grob = ggplotGrob(plot_inset),
+    xmin = 20, 
+    xmax = 46, 
+    ymin = 0.5,
     ymax = 1.9)
 Fig2
 
