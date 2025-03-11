@@ -1,0 +1,330 @@
+---
+title:     "Cirrincione T Study - Midazolam summary data"
+updated:   3/11/25
+author:    Rene coig
+output:    html_notebook
+---
+Study Description: The purpose of this project is to determine how testosterone affects other medications and the natural bacteria that lives in the gut.
+
+Notebook Description: QC of midazolam plasma data using the ncappc package and calculating resulting summary data.
+
+R version 4.4.2 "Pile of Leaves"
+
+Load required packages.
+```{r}
+library(tidyverse)#data wrangling 
+library(reshape2)#data wrangling
+library(ncappc)#non-compartmental analysis
+library(Publish)#ci.mean function
+```
+Load in Midazolam data and additional metabolites measured.
+```{r}
+rm(list = ls())#clearing environment
+data_mdz<-read.csv("_data/20250214_mdz_quadeq.csv", header = T)%>%
+  select(-X)%>%
+  rename(ID=PID_clean, time_min=Time, drug_visit_number_tru = visits)%>%#ncappc package does not like the name "study_id"
+    mutate(across(everything(), as.numeric),  # Convert all columns to numeric for compatibility with ncappc package
+    time_hr = round(time_min / 60, 2)  # Convert time from minutes to hours with 2 decimal places
+  ) 
+data_4ohmdz<-read.csv("_data/20250214_4ohmdz_quadeq.csv", header = T)%>%
+  select(-X)%>%
+  rename(ID=PID_clean, time_min=Time, drug_visit_number_tru = visits)%>%#ncappc package does not like the name "study_id"
+    mutate(across(everything(), as.numeric),  # Convert all columns to numeric for compatibility with ncappc package
+    time_hr = round(time_min / 60, 2)  # Convert time from minutes to hours with 2 decimal places
+  ) 
+data_ohmdz<-read.csv("_data/20250214_ohmdz_quadeq.csv", header = T)%>%
+  select(-X)%>%
+  rename(ID=PID_clean, time_min=Time, drug_visit_number_tru = visits)%>%#ncappc package does not like the name "study_id"
+    mutate(across(everything(), as.numeric),  # Convert all columns to numeric for compatibility with ncappc package
+    time_hr = round(time_min / 60, 2)  # Convert time from minutes to hours with 2 decimal places
+  ) 
+```
+Computing the non-compartmental pharmacokinetic analysis for mdz, ohmdz and 4ohmdz.
+```{r}
+ncappc(obsFile = data_mdz,
+       str1Nm = "drug_visit_number_tru",
+       str1 = c(1,2,3),
+       concUnit = "ng/ml",
+       timeUnit = "h",
+       doseUnit = "ng",
+       idNmObs = "ID",
+       timeNmObs = "time_hr",
+       concNmObs = "conc_ngml_float",
+       doseAmtNm = "dose",
+       onlyNCA = TRUE,
+       LambdaTimeRange = "NULL",
+       backExtrp = TRUE,
+       method = "linearup-logdown",
+       studyName = "T_Study",
+       outFileNm = "T_STUDY",
+       extrapolate = TRUE,
+       gg_theme = theme_classic())
+
+ncaOutput_mdz <- ncaOutput
+
+ncappc(obsFile = data_ohmdz,
+       str1Nm = "drug_visit_number_tru",
+       str1 = c(1,2,3),
+       concUnit = "ng/ml",
+       timeUnit = "h",
+       doseUnit = "ng",
+       idNmObs = "ID",
+       timeNmObs = "time_hr",
+       concNmObs = "conc_ngml_float",
+       doseAmtNm = "dose",
+       onlyNCA = TRUE,
+       LambdaTimeRange = "NULL",
+       backExtrp = TRUE,
+       method = "linearup-logdown",
+       studyName = "T_Study",
+       outFileNm = "T_STUDY",
+       extrapolate = TRUE,
+       gg_theme = theme_classic())
+
+ncaOutput_ohmdz <- ncaOutput
+
+ncappc(obsFile = data_4ohmdz,
+       str1Nm = "drug_visit_number_tru",
+       str1 = c(1,2,3),
+       concUnit = "ng/ml",
+       timeUnit = "h",
+       doseUnit = "ng",
+       idNmObs = "ID",
+       timeNmObs = "time_hr",
+       concNmObs = "conc_ngml_float",
+       doseAmtNm = "dose",
+       onlyNCA = TRUE,
+       LambdaTimeRange = "NULL",
+       backExtrp = TRUE,
+       method = "linearup-logdown",
+       studyName = "T_Study",
+       outFileNm = "T_STUDY",
+       extrapolate = TRUE,
+       gg_theme = theme_classic())
+
+ncaOutput_4ohmdz <- ncaOutput
+```
+Generate a summary dataset with columns for mean concentration +/- SD and median with IQR for all 3 metabolites.
+```{r}
+summary_mdz_plasma <- data_mdz %>%
+  group_by(time_hr, drug_visit_number_tru) %>%
+  summarise(
+    mean_conc = round(mean(conc_ngml_float, na.rm = TRUE), 3),
+    SD_conc = round(sd(conc_ngml_float, na.rm = TRUE), 3),
+    median_conc = round(median(conc_ngml_float, na.rm = TRUE), 3),
+    IQR_conc = round(IQR(conc_ngml_float, na.rm = TRUE), 3)#spread between 25th and 75th percentile
+  )
+
+summary_ohmdz_plasma <- data_ohmdz %>%
+  group_by(time_hr, drug_visit_number_tru) %>%
+  summarise(
+    mean_conc = round(mean(conc_ngml_float, na.rm = TRUE), 3),
+    SD_conc = round(sd(conc_ngml_float, na.rm = TRUE), 3),
+    median_conc = round(median(conc_ngml_float, na.rm = TRUE), 3),
+    IQR_conc = round(IQR(conc_ngml_float, na.rm = TRUE), 3)#spread between 25th and 75th percentile
+  )
+
+summary_4ohmdz_plasma <- data_4ohmdz %>%
+  group_by(time_hr, drug_visit_number_tru) %>%
+  summarise(
+    mean_conc = round(mean(conc_ngml_float, na.rm = TRUE), 3),
+    SD_conc = round(sd(conc_ngml_float, na.rm = TRUE), 3),
+    median_conc = round(median(conc_ngml_float, na.rm = TRUE), 3),
+    IQR_conc = round(IQR(conc_ngml_float, na.rm = TRUE), 3)#spread between 25th and 75th percentile
+  )
+```
+Unit conversions: CL/F from ml/hr -> L/min; Vd/F from ml -> L
+```{r}
+ncaOutput_mdz$Cl_obs<-ncaOutput_mdz$Cl_obs/1000/60
+ncaOutput_mdz$Vz_obs<-ncaOutput_mdz$Vz_obs/1000
+
+ncaOutput_ohmdz$Cl_obs<-ncaOutput_ohmdz$Cl_obs/1000/60
+ncaOutput_ohmdz$Vz_obs<-ncaOutput_ohmdz$Vz_obs/1000
+
+ncaOutput_4ohmdz$Cl_obs<-ncaOutput_4ohmdz$Cl_obs/1000/60
+ncaOutput_4ohmdz$Vz_obs<-ncaOutput_4ohmdz$Vz_obs/1000
+```
+Create a new dataframe containing data for results summary table: 
+(Cmax, AUC (0-6), AUC(0-inf), HL_lambda_z (terminal half-life), Cl_obs (CL/F) and  Vz_obs (Volume of distribution)). Reshape the data from long to wide format. 
+```{r}
+PK_analysis_mdz <- ncaOutput_mdz %>% 
+  select(ID, drug_visit_number_tru, Tmax, Cmax, Cl_obs, HL_Lambda_z, AUClast, AUCINF_obs, Vz_obs)
+PK_analysis_mdz_wide <- dcast(melt(PK_analysis_mdz, id.vars=c("ID", "drug_visit_number_tru")), ID ~ variable+drug_visit_number_tru)
+
+PK_analysis_ohmdz <- ncaOutput_ohmdz %>% 
+  select(ID, drug_visit_number_tru, Tmax, Cmax, Cl_obs, HL_Lambda_z, AUClast, AUCINF_obs, Vz_obs)
+PK_analysis_ohmdz_wide <- dcast(melt(PK_analysis_ohmdz, id.vars=c("ID", "drug_visit_number_tru")), ID ~ variable+drug_visit_number_tru)
+
+PK_analysis_4ohmdz <- ncaOutput_4ohmdz %>% 
+  select(ID, drug_visit_number_tru, Tmax, Cmax, Cl_obs, HL_Lambda_z, AUClast, AUCINF_obs, Vz_obs)
+PK_analysis_4ohmdz_wide <- dcast(melt(PK_analysis_4ohmdz, id.vars=c("ID", "drug_visit_number_tru")), ID ~ variable+drug_visit_number_tru)
+```
+Add a new column with ratios for visits 1 vs 3 and visits 1 vs 2 for geometric mean ratio calculations.
+```{r}
+# Calculate ratios for visit 1 vs visit 2
+PK_analysis_4ohmdz_wide <- PK_analysis_4ohmdz_wide %>%
+  mutate(
+    Vz_obs_ratio1_2 = Vz_obs_2 / Vz_obs_1,
+    AUCinf_ratio1_2 = AUCINF_obs_2 / AUCINF_obs_1,
+    AUClast_ratio1_2 = AUClast_2 / AUClast_1,
+    Cmax_ratio1_2 = Cmax_2 / Cmax_1,
+    Cl_obs_ratio1_2 = Cl_obs_2 / Cl_obs_1,
+    HL_Lambda_z_ratio1_2 = HL_Lambda_z_2 / HL_Lambda_z_1)
+
+# Calculate ratios for visit 1 vs visit 3
+PK_analysis_4ohmdz_wide <- PK_analysis_4ohmdz_wide %>%
+  mutate(    
+    Vz_obs_ratio1_3 = Vz_obs_3 / Vz_obs_1,
+    AUCinf_ratio1_3 = AUCINF_obs_3 / AUCINF_obs_1,
+    AUClast_ratio1_3 = AUClast_3 / AUClast_1,
+    Cmax_ratio1_3 = Cmax_3 / Cmax_1,
+    Cmax_ratio1_2 = Cmax_2 / Cmax_1,
+    Cl_obs_ratio1_3 = Cl_obs_3 / Cl_obs_1,
+    HL_Lambda_z_ratio1_3 = HL_Lambda_z_3 / HL_Lambda_z_1)
+
+# Calculate ratios for visit 1 vs visit 2
+PK_analysis_ohmdz_wide <- PK_analysis_ohmdz_wide %>%
+  mutate(
+    Vz_obs_ratio1_2 = Vz_obs_2 / Vz_obs_1,
+    AUCinf_ratio1_2 = AUCINF_obs_2 / AUCINF_obs_1,
+    AUClast_ratio1_2 = AUClast_2 / AUClast_1,
+    Cmax_ratio1_2 = Cmax_2 / Cmax_1,
+    Cl_obs_ratio1_2 = Cl_obs_2 / Cl_obs_1,
+    HL_Lambda_z_ratio1_2 = HL_Lambda_z_2 / HL_Lambda_z_1)
+
+# Calculate ratios for visit 1 vs visit 3
+PK_analysis_ohmdz_wide <- PK_analysis_ohmdz_wide %>%
+  mutate(    
+    Vz_obs_ratio1_3 = Vz_obs_3 / Vz_obs_1,
+    AUCinf_ratio1_3 = AUCINF_obs_3 / AUCINF_obs_1,
+    AUClast_ratio1_3 = AUClast_3 / AUClast_1,
+    Cmax_ratio1_3 = Cmax_3 / Cmax_1,
+    Cmax_ratio1_2 = Cmax_2 / Cmax_1,
+    Cl_obs_ratio1_3 = Cl_obs_3 / Cl_obs_1,
+    HL_Lambda_z_ratio1_3 = HL_Lambda_z_3 / HL_Lambda_z_1)
+
+# Calculate ratios for visit 1 vs visit 2
+PK_analysis_mdz_wide <- PK_analysis_mdz_wide %>%
+  mutate(
+    Vz_obs_ratio1_2 = Vz_obs_2 / Vz_obs_1,
+    AUCinf_ratio1_2 = AUCINF_obs_2 / AUCINF_obs_1,
+    AUClast_ratio1_2 = AUClast_2 / AUClast_1,
+    Cmax_ratio1_2 = Cmax_2 / Cmax_1,
+    Cl_obs_ratio1_2 = Cl_obs_2 / Cl_obs_1,
+    HL_Lambda_z_ratio1_2 = HL_Lambda_z_2 / HL_Lambda_z_1)
+
+# Calculate ratios for visit 1 vs visit 3
+PK_analysis_mdz_wide <- PK_analysis_mdz_wide %>%
+  mutate(    
+    Vz_obs_ratio1_3 = Vz_obs_3 / Vz_obs_1,
+    AUCinf_ratio1_3 = AUCINF_obs_3 / AUCINF_obs_1,
+    AUClast_ratio1_3 = AUClast_3 / AUClast_1,
+    Cmax_ratio1_3 = Cmax_3 / Cmax_1,
+    Cmax_ratio1_2 = Cmax_2 / Cmax_1,
+    Cl_obs_ratio1_3 = Cl_obs_3 / Cl_obs_1,
+    HL_Lambda_z_ratio1_3 = HL_Lambda_z_3 / HL_Lambda_z_1)
+```
+Make a list of the parameters for which summary results are needed.
+```{r}
+parameters <- c("AUClast", "AUCINF_obs", "Cmax", "Cl_obs", "HL_Lambda_z", "Vz_obs", "Tmax")
+GMR_parameters <- c("AUClast_ratio", "AUCinf_ratio","Cmax_ratio", "Cl_obs_ratio", "HL_Lambda_z_ratio",  "Vz_obs_ratio")
+```
+Calculate geometric means and 95% CI for the individual parameters pre and post T. Filter out the individuals that have NA values.
+```{r}
+source("_source/geometric_mean_95CI.R")
+# Compute geometric means for visits 1, 2, and 3
+results_geo_1_mdz <- as.data.frame(sapply(parameters, function(param) geo95(PK_analysis_mdz_wide[[paste0(param, "_1")]])))
+results_geo_2_mdz <- as.data.frame(sapply(parameters, function(param) geo95(PK_analysis_mdz_wide[[paste0(param, "_2")]])))
+results_geo_3_mdz <- as.data.frame(sapply(parameters, function(param) geo95(PK_analysis_mdz_wide[[paste0(param, "_3")]])))
+
+results_geo_1_ohmdz <- as.data.frame(sapply(parameters, function(param) geo95(PK_analysis_ohmdz_wide[[paste0(param, "_1")]])))
+results_geo_2_ohmdz <- as.data.frame(sapply(parameters, function(param) geo95(PK_analysis_ohmdz_wide[[paste0(param, "_2")]])))
+results_geo_3_ohmdz <- as.data.frame(sapply(parameters, function(param) geo95(PK_analysis_ohmdz_wide[[paste0(param, "_3")]])))
+
+results_geo_1_4ohmdz <- as.data.frame(sapply(parameters, function(param) geo95(PK_analysis_4ohmdz_wide[[paste0(param, "_1")]])))
+results_geo_2_4ohmdz <- as.data.frame(sapply(parameters, function(param) geo95(PK_analysis_4ohmdz_wide[[paste0(param, "_2")]])))
+results_geo_3_4ohmdz <- as.data.frame(sapply(parameters, function(param) geo95(PK_analysis_4ohmdz_wide[[paste0(param, "_3")]])))
+```
+Calculate arithmetic mean and standard deviation for the individual parameters pre and post T. Filter out the individuals that have NA values.
+```{r}
+source("_source/arithmetic_mean.R")
+# Compute arithmetic means for visits 1, 2, and 3
+results_mean_1_mdz <- as.data.frame(sapply(parameters, function(param) arithmean(PK_analysis_mdz_wide[[paste0(param, "_1")]])))
+results_mean_2_mdz <- as.data.frame(sapply(parameters, function(param) arithmean(PK_analysis_mdz_wide[[paste0(param, "_2")]])))
+results_mean_3_mdz <- as.data.frame(sapply(parameters, function(param) arithmean(PK_analysis_mdz_wide[[paste0(param, "_3")]])))
+
+results_mean_1_ohmdz <- as.data.frame(sapply(parameters, function(param) arithmean(PK_analysis_ohmdz_wide[[paste0(param, "_1")]])))
+results_mean_2_ohmdz <- as.data.frame(sapply(parameters, function(param) arithmean(PK_analysis_ohmdz_wide[[paste0(param, "_2")]])))
+results_mean_3_ohmdz <- as.data.frame(sapply(parameters, function(param) arithmean(PK_analysis_ohmdz_wide[[paste0(param, "_3")]])))
+
+results_mean_1_4ohmdz <- as.data.frame(sapply(parameters, function(param) arithmean(PK_analysis_4ohmdz_wide[[paste0(param, "_1")]])))
+results_mean_2_4ohmdz <- as.data.frame(sapply(parameters, function(param) arithmean(PK_analysis_4ohmdz_wide[[paste0(param, "_2")]])))
+results_mean_3_4ohmdz <- as.data.frame(sapply(parameters, function(param) arithmean(PK_analysis_4ohmdz_wide[[paste0(param, "_3")]])))
+```
+Calculate median for the individual parameters pre and post T. Filter out the individuals that have NA values.
+```{r}
+source("_source/medians.R")
+# Compute medians for visits 1, 2, and 3
+results_med_1_mdz <- as.data.frame(sapply(parameters, function(param) medians(PK_analysis_mdz_wide[[paste0(param, "_1")]])))
+results_med_2_mdz <- as.data.frame(sapply(parameters, function(param) medians(PK_analysis_mdz_wide[[paste0(param, "_2")]])))
+results_med_3_mdz <- as.data.frame(sapply(parameters, function(param) medians(PK_analysis_mdz_wide[[paste0(param, "_3")]])))
+
+results_med_1_ohmdz <- as.data.frame(sapply(parameters, function(param) medians(PK_analysis_ohmdz_wide[[paste0(param, "_1")]])))
+results_med_2_ohmdz <- as.data.frame(sapply(parameters, function(param) medians(PK_analysis_ohmdz_wide[[paste0(param, "_2")]])))
+results_med_3_ohmdz <- as.data.frame(sapply(parameters, function(param) medians(PK_analysis_ohmdz_wide[[paste0(param, "_3")]])))
+
+results_med_1_4ohmdz <- as.data.frame(sapply(parameters, function(param) medians(PK_analysis_4ohmdz_wide[[paste0(param, "_1")]])))
+results_med_2_4ohmdz <- as.data.frame(sapply(parameters, function(param) medians(PK_analysis_4ohmdz_wide[[paste0(param, "_2")]])))
+results_med_3_4ohmdz <- as.data.frame(sapply(parameters, function(param) medians(PK_analysis_4ohmdz_wide[[paste0(param, "_3")]])))
+```
+Calculate GMRs with both 90% and 95% CI. MDZ
+```{r}
+source("_source/geometric_mean_90CI.R")
+# Compute geometric mean ratios for visit 1 vs visit 2 and visit 1 vs visit 3
+results_GMR1_2_90_mdz <- sapply(GMR_parameters, function(col) geo90(PK_analysis_mdz_wide[[paste0(col, "1_2")]]))
+results_GMR1_3_90_mdz <- sapply(GMR_parameters, function(col) geo90(PK_analysis_mdz_wide[[paste0(col, "1_3")]]))
+results_GMR1_2_95_mdz <- sapply(GMR_parameters, function(col) geo95(PK_analysis_mdz_wide[[paste0(col, "1_2")]]))
+results_GMR1_3_95_mdz <- sapply(GMR_parameters, function(col) geo95(PK_analysis_mdz_wide[[paste0(col, "1_3")]]))
+
+# Add Tmax_GMR as "NA"
+results_GMR1_2_90_mdz <- as.data.frame(c(results_GMR1_2_90_mdz, Tmax_GMR1_2 = "NA"))
+results_GMR1_3_90_mdz <- as.data.frame(c(results_GMR1_3_90_mdz, Tmax_GMR1_3 = "NA"))
+results_GMR1_2_95_mdz <- as.data.frame(c(results_GMR1_2_95_mdz, Tmax_GMR1_2 = "NA"))
+results_GMR1_3_95_mdz <- as.data.frame(c(results_GMR1_3_95_mdz, Tmax_GMR1_3 = "NA"))
+```
+Calculate GMRs with both 90% and 95% CI. OHMDZ
+```{r}
+source("_source/geometric_mean_90CI.R")
+# Compute geometric mean ratios for visit 1 vs visit 2 and visit 1 vs visit 3
+results_GMR1_2_90_ohmdz <- sapply(GMR_parameters, function(col) geo90(PK_analysis_ohmdz_wide[[paste0(col, "1_2")]]))
+results_GMR1_3_90_ohmdz <- sapply(GMR_parameters, function(col) geo90(PK_analysis_ohmdz_wide[[paste0(col, "1_3")]]))
+results_GMR1_2_95_ohmdz <- sapply(GMR_parameters, function(col) geo95(PK_analysis_ohmdz_wide[[paste0(col, "1_2")]]))
+results_GMR1_3_95_ohmdz <- sapply(GMR_parameters, function(col) geo95(PK_analysis_ohmdz_wide[[paste0(col, "1_3")]]))
+
+# Add Tmax_GMR as "NA"
+results_GMR1_2_90_ohmdz <- as.data.frame(c(results_GMR1_2_90_ohmdz, Tmax_GMR1_2 = "NA"))
+results_GMR1_3_90_ohmdz <- as.data.frame(c(results_GMR1_3_90_ohmdz, Tmax_GMR1_3 = "NA"))
+results_GMR1_2_95_ohmdz <- as.data.frame(c(results_GMR1_2_95_ohmdz, Tmax_GMR1_2 = "NA"))
+results_GMR1_3_95_ohmdz <- as.data.frame(c(results_GMR1_3_95_ohmdz, Tmax_GMR1_3 = "NA"))
+```
+Calculate GMRs with both 90% and 95% CI. 4OHMDZ
+```{r}
+source("_source/geometric_mean_90CI.R")
+# Compute geometric mean ratios for visit 1 vs visit 2 and visit 1 vs visit 3
+results_GMR1_2_90_4ohmdz <- sapply(GMR_parameters, function(col) geo90(PK_analysis_4ohmdz_wide[[paste0(col, "1_2")]]))
+results_GMR1_3_90_4ohmdz <- sapply(GMR_parameters, function(col) geo90(PK_analysis_4ohmdz_wide[[paste0(col, "1_3")]]))
+results_GMR1_2_95_4ohmdz <- sapply(GMR_parameters, function(col) geo95(PK_analysis_4ohmdz_wide[[paste0(col, "1_2")]]))
+results_GMR1_3_95_4ohmdz <- sapply(GMR_parameters, function(col) geo95(PK_analysis_4ohmdz_wide[[paste0(col, "1_3")]]))
+
+# Add Tmax_GMR as "NA"
+results_GMR1_2_90_4ohmdz <- as.data.frame(c(results_GMR1_2_90_4ohmdz, Tmax_GMR1_2 = "NA"))
+results_GMR1_3_90_4ohmdz <- as.data.frame(c(results_GMR1_3_90_4ohmdz, Tmax_GMR1_3 = "NA"))
+results_GMR1_2_95_4ohmdz <- as.data.frame(c(results_GMR1_2_95_4ohmdz, Tmax_GMR1_2 = "NA"))
+results_GMR1_3_95_4ohmdz <- as.data.frame(c(results_GMR1_3_95_4ohmdz, Tmax_GMR1_3 = "NA"))
+```
+Save data frame in R format for reloading in other notebooks.
+```{r}
+save(summary_mdz_plasma, summary_ohmdz_plasma,summary_4ohmdz_plasma, data_mdz, data_ohmdz, data_4ohmdz, file = "_output/data_mdz_for_plots.RData")
+
+save(ncaOutput_mdz, ncaOutput_ohmdz,ncaOutput_4ohmdz,results_mean_1_mdz,results_mean_2_mdz,results_mean_3_mdz,results_med_1_mdz,results_med_2_mdz,results_med_3_mdz, results_geo_1_mdz,results_geo_2_mdz,results_geo_3_mdz,results_GMR1_2_90_mdz, results_GMR1_3_90_mdz, results_GMR1_2_95_mdz, results_GMR1_3_95_mdz, results_mean_1_ohmdz,results_mean_2_ohmdz,results_mean_3_ohmdz,results_med_1_ohmdz,results_med_2_ohmdz,results_med_3_ohmdz, results_geo_1_ohmdz,results_geo_2_ohmdz,results_geo_3_ohmdz,results_GMR1_2_90_ohmdz, results_GMR1_3_90_ohmdz, results_GMR1_2_95_ohmdz, results_GMR1_3_95_ohmdz,results_mean_1_4ohmdz,results_mean_2_4ohmdz,results_mean_3_4ohmdz,results_med_1_4ohmdz,results_med_2_4ohmdz,results_med_3_4ohmdz, results_geo_1_4ohmdz,results_geo_2_4ohmdz,results_geo_3_4ohmdz,results_GMR1_2_90_4ohmdz, results_GMR1_3_90_4ohmdz, results_GMR1_2_95_4ohmdz, results_GMR1_3_95_4ohmdz,PK_analysis_mdz_wide, file = "_output/results_mdz.RData")
+```
