@@ -1,6 +1,6 @@
 medians <- function(x) {
-  # Remove values that are 0 or less and NAs
-  x_filtered <- x[x > 0 & !is.na(x)]
+  # Remove values that are negative and NAs
+  x_filtered <- x[x >= 0 & !is.na(x)]
   
   # Count non-NA, positive values
   n <- length(x_filtered)

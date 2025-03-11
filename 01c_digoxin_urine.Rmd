@@ -1,0 +1,115 @@
+---
+title:     "Cirrincione T Study - Digoxin Urine concentration data"
+updated:   3/11/25
+author:    Rene coig
+output:    html_notebook
+---
+Study Description: The purpose of this project is to determine how testosterone affects other medications and the natural bacteria that lives in the gut.
+
+Notebook Description: QC of digoxin urine data.
+
+R version 4.4.2 "Pile of Leaves"
+
+Load required packages.
+```{r}
+library(tidyverse)#data wrangling 
+library(reshape2)#data wrangling
+library(Publish)#ci.mean function
+```
+Load in Digoxin urine concentrations and creatinine clearance data.
+```{r}
+rm(list = ls())#clearing environment
+load("_output/results_dig_plasma.RData")
+data_dig_urine <- read.csv("_data/20250124_dig_urine.csv", header = TRUE)%>% #experimental digoxin urine data
+  rename(ID=study_id, drug_visit_number_tru = visit, Ae_48h=total_amt_dig_excret_nanograms_ng)%>%
+    mutate(across(everything(), as.numeric)) 
+
+data_creat <- read.csv("_data/20250124_dig_urine_creatinine_clearance.csv", header = TRUE)%>% #experimental creatinine clearance data
+  rename(ID=study_id, drug_visit_number_tru = visit)%>%
+    mutate(across(everything(), as.numeric)) 
+
+data_dig_urine<-merge(data_dig_urine,data_creat,by=c("ID","drug_visit_number_tru"))
+
+rm(data_creat)
+```
+Create df with all needed parameters for digoxin clearance calculations.
+```{r}
+AUC<-ncaOutput%>%select(ID,drug_visit_number_tru,AUClast,Cl_obs)
+data_dig_urine<-merge(data_dig_urine,AUC,by=c("ID","drug_visit_number_tru"))
+```
+Adjusting units from hours to mins. Crcl is ml/min and AUC is ng hr/ml; needs to be ng min/ml
+```{r}
+data_dig_urine$AUClast_minml<-data_dig_urine$AUClast*60 #(ng*hr)/ml -> (ng*min)/ml
+```
+Digoxin renal clearance is estimated by CLRenal = Ae (ng) / AUC0–48h (ng*min)/ml = (ml/min)
+```{r}
+data_dig_urine$Cl_R<-round((data_dig_urine$Ae_48h/data_dig_urine$AUClast_minml),0) #ml/min
+```
+Digoxin renal secretion clearance is estimated by CLsecretion = CLRenal (ml/min) – fu·CrCl (ml/min) where fu is estimated at 0.75 (Steiness 1974)
+```{r}
+data_dig_urine$fuCrCl<-0.75*data_dig_urine$crcl_24h #fraction unbound
+data_dig_urine$Cl_S<-round((data_dig_urine$Cl_R - data_dig_urine$fuCrCl),0) #ml/min
+```
+Wide format for summary stats.
+```{r}
+PK_analysis_clearance_wide <- dcast(melt(data_dig_urine%>%select(ID,drug_visit_number_tru,Cl_R,Cl_S), id.vars=c("ID", "drug_visit_number_tru")), ID ~ variable+drug_visit_number_tru)
+```
+Add a new column with ratios for visits 1 vs 3 and visits 1 vs 2 for geometric mean ratio calculations.
+```{r}
+# Calculate ratios for visit 1 vs visit 2
+PK_analysis_clearance_wide <- PK_analysis_clearance_wide %>%
+  mutate(
+    Cl_R_ratio1_2 = Cl_R_2 / Cl_R_1,
+    Cl_S_ratio1_2 = Cl_S_2 / Cl_S_1)
+
+# Calculate ratios for visit 1 vs visit 3
+PK_analysis_clearance_wide <- PK_analysis_clearance_wide %>%
+  mutate(
+    Cl_R_ratio1_3 = Cl_R_3 / Cl_R_1,
+    Cl_S_ratio1_3 = Cl_S_3 / Cl_S_1  )
+```
+Make a list of the parameters for which summary results are needed.
+```{r}
+parameters <- c("Cl_R", "Cl_S")
+GMR_parameters <- c("Cl_R_ratio", "Cl_S_ratio")
+```
+Calculate geometric means and 95% CI for the individual parameters. Filter out the individuals that have NA values or are 0 or less.
+```{r}
+source("_source/geometric_mean_95CI.R")
+# Compute geometric means for visits 1, 2, and 3
+results_Ugeo_1 <- as.data.frame(sapply(parameters, function(param) geo95(PK_analysis_clearance_wide[[paste0(param, "_1")]])))
+results_Ugeo_2 <- as.data.frame(sapply(parameters, function(param) geo95(PK_analysis_clearance_wide[[paste0(param, "_2")]])))
+results_Ugeo_3 <- as.data.frame(sapply(parameters, function(param) geo95(PK_analysis_clearance_wide[[paste0(param, "_3")]])))
+```
+Calculate arithmetic mean and standard deviation for the individual parameters. Filter out the individuals that have NA values.
+```{r}
+source("_source/arithmetic_mean.R")
+# Compute arithmetic means for visits 1, 2, and 3
+results_Umean_1 <- as.data.frame(sapply(parameters, function(param) arithmean(PK_analysis_clearance_wide[[paste0(param, "_1")]])))
+results_Umean_2 <- as.data.frame(sapply(parameters, function(param) arithmean(PK_analysis_clearance_wide[[paste0(param, "_2")]])))
+results_Umean_3 <- as.data.frame(sapply(parameters, function(param) arithmean(PK_analysis_clearance_wide[[paste0(param, "_3")]])))
+```
+Calculate median for the individual parameters pre and post T. Filter out the individuals that have NA values.
+```{r}
+source("_source/medians.R")
+
+# Compute arithmetic means for visits 1, 2, and 3
+results_Umed_1 <- as.data.frame(sapply(parameters, function(param) medians(PK_analysis_clearance_wide[[paste0(param, "_1")]])))
+results_Umed_2 <- as.data.frame(sapply(parameters, function(param) medians(PK_analysis_clearance_wide[[paste0(param, "_2")]])))
+results_Umed_3 <- as.data.frame(sapply(parameters, function(param) medians(PK_analysis_clearance_wide[[paste0(param, "_3")]])))
+```
+Calculate GMRs with both 90 and 95 CI. Filter out the individuals that have NA values or are 0 or less.
+```{r}
+source("_source/geometric_mean_90CI.R")
+# Compute geometric mean ratios for visit 1 vs visit 2 and visit 1 vs visit 3
+results_UGMR1_2_90 <- sapply(GMR_parameters, function(col) geo90(PK_analysis_clearance_wide[[paste0(col, "1_2")]]))
+results_UGMR1_3_90 <- sapply(GMR_parameters, function(col) geo90(PK_analysis_clearance_wide[[paste0(col, "1_3")]]))
+results_UGMR1_2_95 <- sapply(GMR_parameters, function(col) geo95(PK_analysis_clearance_wide[[paste0(col, "1_2")]]))
+results_UGMR1_3_95 <- sapply(GMR_parameters, function(col) geo95(PK_analysis_clearance_wide[[paste0(col, "1_3")]]))
+```
+Save data frame in R format for reloading in other notebooks.
+```{r}
+save(data_dig_urine,results_Umean_1,results_Umean_2,results_Umean_3,results_Umed_1,results_Umed_2,results_Umed_3, results_Ugeo_1,results_Ugeo_2,results_Ugeo_3,results_UGMR1_2_90,results_UGMR1_3_90,results_UGMR1_2_95,results_UGMR1_3_95, ncaOutput, data_dig,summary_dig_plasma, results_mean_1,results_mean_2,results_mean_3,results_med_1,results_med_2,results_med_3, results_geo_1,results_geo_2,results_geo_3,results_GMR1_2_90, results_GMR1_3_90, results_GMR1_2_95, results_GMR1_3_95, PK_analysis_dig_wide, file = "_output/results_dig.RData")
+
+save(data_dig, summary_dig_plasma, file = "_output/data_dig_for_plots.RData")
+```
