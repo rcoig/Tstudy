@@ -1,0 +1,53 @@
+---
+title:     "Cirrincione T Study - Lambda zed from NCAPPC package to be used in Python imputation"
+updated:   3/11/25
+author:    Rene coig
+output:    html_notebook
+---
+Study Description: The purpose of this project is to determine how testosterone affects other medications and the natural bacteria that lives in the gut.
+
+Notebook Description: QC of digoxin plasma data - using the ncappc package to generate lambda zed.
+
+R version 4.4.2 "Pile of Leaves"
+
+Load required packages.
+```{r}
+library(tidyverse)#data wrangling 
+library(ncappc)#non-compartmental analysis
+```
+Load in Digoxin data
+```{r}
+rm(list = ls())#clearing environment
+
+data_dig_BLQs <- read.csv("_data/20250212_dig_blqs_retained.csv", header = TRUE)%>%
+    select(-X)%>% #remove empty first column
+    rename(ID=PID_clean_blqs, time_min=Time_clean_blqs, drug_visit_number_tru = visits_blqs)%>% #These data include BLQ values
+    mutate(across(everything(), as.numeric), # Convert all columns to numeric for compatibility with ncappc package
+    time_hr = round(time_min / 60, 2)  # Convert time from minutes to hours with 2 decimal places
+)
+```
+Computing the non-compartmental pharmacokinetic analysis, with all timepoints included to generate lambda_zed for data with BLQs retained.
+```{r}
+ncappc(obsFile = data_dig_BLQs,
+       str1Nm = "drug_visit_number_tru",
+       str1 = c(1,2,3),
+       concUnit = "ng/ml",
+       timeUnit = "h",
+       doseUnit = "ng",
+       idNmObs = "ID",
+       timeNmObs = "time_hr",
+       concNmObs = "conc_1ml_adjust_blqs",
+       doseAmtNm = "dose",
+       onlyNCA = TRUE,
+       LambdaTimeRange = "NULL",
+       backExtrp = TRUE,
+       method = "linearup-logdown",
+       studyName = "T_Study",
+       outFileNm = "T_STUDY",
+       extrapolate = TRUE,
+       gg_theme = theme_classic())
+```
+Output NCAPPC output including lambda zed for LC.
+```{r}
+write_csv(ncaOutput, "_output/dig_plasma_NCAPPC_output.csv")
+```

@@ -1,0 +1,173 @@
+---
+title:     "Cirrincione T Study - Results and summary data for digoxin data"
+updated:   3/11/25
+author:    Rene coig
+output:    html_notebook
+---
+Study Description: The purpose of this project is to determine how testosterone affects other medications and the natural bacteria that lives in the gut.
+
+Notebook Description: QC of digoxin plasma data, importing imputed concentrations, regenerating non-compartmental analysis using the ncappc package and calculating summary data.
+
+R version 4.4.2 "Pile of Leaves"
+
+Load required packages.
+```{r}
+library(tidyverse)#data wrangling 
+library(reshape2)#data wrangling
+library(ncappc)#non-compartmental analysis
+library(Publish)#ci.mean function
+```
+Load in Digoxin data which have been provided by LC following imputation step in Python.
+```{r}
+rm(list = ls())#clearing environment
+data_dig <- read.csv("_data/20250305_dig_blqs_included_imputed_fixed_used_ke_from_raw_df_w_blqs_incl.csv", header = TRUE)%>%
+    select(-X)%>% #remove empty first column
+    mutate(   across(everything(), ~replace_na(.x, 0)), # Replace missing imputed values with zeros (PID 4 V 3)
+              across(everything(), as.numeric), # Convert all columns to numeric for compatibility with ncappc package
+              time_hr = round(time_min / 60, 2), # Convert time from minutes to hours with 2 decimal places
+              imputed_concentration = round(imputed_concentration, 3)) # Round imputed concentrations to 3 decimal places   
+```
+Computing the non-compartmental pharmacokinetic analysis, with all timepoints included using the imputed data from LC for 0-last.
+```{r}
+ncappc(obsFile = data_dig,
+       str1Nm = "drug_visit_number_tru",
+       str1 = c(1,2,3),
+       concUnit = "ng/ml",
+       timeUnit = "h",
+       doseUnit = "ng",
+       idNmObs = "ID",
+       timeNmObs = "time_hr",
+       concNmObs = "imputed_concentration",
+       doseAmtNm = "dose",
+       onlyNCA = TRUE,
+       LambdaTimeRange = "NULL",
+       backExtrp = TRUE,
+       method = "linearup-logdown",
+       studyName = "T_Study",
+       outFileNm = "T_STUDY",
+       extrapolate = TRUE,
+       gg_theme = theme_classic())
+
+ncaOutput_0_last<-ncaOutput
+```
+Also run Non-compartmental analysis for 0-4 hours only to retrieve AUC, and incorporate it into the existing NCAPPC output.
+(Note: All other values in the final output will be for 0-24 AUC)
+```{r}
+ncappc(obsFile = data_dig%>%filter(time_hr<=4),
+       str1Nm = "drug_visit_number_tru",
+       str1 = c(1,2,3),
+       concUnit = "ng/ml",
+       timeUnit = "h",
+       doseUnit = "ng",
+       idNmObs = "ID",
+       timeNmObs = "time_hr",
+       concNmObs = "imputed_concentration",
+       doseAmtNm = "dose",
+       onlyNCA = TRUE,
+       LambdaTimeRange = "NULL",
+       method = "linearup-logdown",
+       studyName = "T_Study",
+       outFileNm = "T_STUDY",
+       extrapolate = TRUE,
+       gg_theme = theme_classic())
+
+AUC_0_4 <- ncaOutput%>% select(ID, drug_visit_number_tru, AUClast)%>% rename(AUC4=AUClast)
+ncaOutput<-merge(AUC_0_4,ncaOutput_0_last,by=c("ID","drug_visit_number_tru"))%>% # merge AUC4 column into overall NCAPPC output
+    relocate(AUC4, .before = colnames(ncaOutput)[12])# Relocate the AUC4 column to be next to AUClast
+```
+Generate a summary dataset with columns for mean concentration +/- SD and median with IQR.
+```{r}
+summary_dig_plasma <- data_dig %>%
+  group_by(time_hr, drug_visit_number_tru) %>%
+  summarise(
+    mean_conc = round(mean(imputed_concentration, na.rm = TRUE), 3),
+    SD_conc = round(sd(imputed_concentration, na.rm = TRUE), 3),
+    median_conc = round(median(imputed_concentration, na.rm = TRUE), 3),
+    IQR_conc = round(IQR(imputed_concentration, na.rm = TRUE), 3)#spread between 25th and 75th percentile
+  )
+```
+Unit conversions: CL/F from ml/hr -> L/min; Vd/F from ml -> L
+```{r}
+ncaOutput$Cl_obs<-ncaOutput$Cl_obs/1000/60
+ncaOutput$Vz_obs<-ncaOutput$Vz_obs/1000
+```
+Create a new dataframe containing data for results summary table: 
+(Cmax, AUC (0-4), AUC (0-48), AUC(0-inf), HL_lambda_z (terminal half-life), Cl_obs (CL/F) and  Vz_obs (Volume of distribution)). Reshape the data from long to wide format. 
+```{r}
+PK_analysis <- ncaOutput %>% 
+  select(ID, drug_visit_number_tru, Tmax, Cmax, Cl_obs, HL_Lambda_z, AUC4, AUClast, AUCINF_obs, Vz_obs)
+PK_analysis_wide <- dcast(melt(PK_analysis, id.vars=c("ID", "drug_visit_number_tru")), ID ~ variable+drug_visit_number_tru)
+```
+Add a new column with ratios for visits 1 vs 3 and visits 1 vs 2 for geometric mean ratio calculations.
+```{r}
+# Calculate ratios for visit 1 vs visit 2
+PK_analysis_dig_wide <- PK_analysis_wide %>%
+  mutate(
+    Vz_obs_ratio1_2 = Vz_obs_2 / Vz_obs_1,
+    AUCinf_ratio1_2 = AUCINF_obs_2 / AUCINF_obs_1,
+    AUClast_ratio1_2 = AUClast_2 / AUClast_1,
+    AUC4_ratio1_2 = AUC4_2 / AUC4_1,
+    Cmax_ratio1_2 = Cmax_2 / Cmax_1,
+    Cl_obs_ratio1_2 = Cl_obs_2 / Cl_obs_1,
+    HL_Lambda_z_ratio1_2 = HL_Lambda_z_2 / HL_Lambda_z_1)
+
+# Calculate ratios for visit 1 vs visit 3
+PK_analysis_dig_wide <- PK_analysis_dig_wide %>%
+  mutate(    
+    Vz_obs_ratio1_3 = Vz_obs_3 / Vz_obs_1,
+    AUCinf_ratio1_3 = AUCINF_obs_3 / AUCINF_obs_1,
+    AUClast_ratio1_3 = AUClast_3 / AUClast_1,
+    AUC4_ratio1_3 = AUC4_3 / AUC4_1,
+    Cmax_ratio1_3 = Cmax_3 / Cmax_1,
+    Cmax_ratio1_2 = Cmax_2 / Cmax_1,
+    Cl_obs_ratio1_3 = Cl_obs_3 / Cl_obs_1,
+    HL_Lambda_z_ratio1_3 = HL_Lambda_z_3 / HL_Lambda_z_1)
+```
+Make a list of the parameters for which summary results are needed.
+```{r}
+parameters <- c("AUC4", "AUClast", "AUCINF_obs", "Cmax", "Cl_obs", "HL_Lambda_z", "Vz_obs", "Tmax")
+GMR_parameters <- c("AUC4_ratio", "AUClast_ratio", "AUCinf_ratio","Cmax_ratio", "Cl_obs_ratio", "HL_Lambda_z_ratio",  "Vz_obs_ratio")
+```
+Calculate geometric means and 95% CI for the individual parameters pre and post T. Filter out the individuals that have NA values.
+```{r}
+source("_source/geometric_mean_95CI.R")
+# Compute geometric means for visits 1, 2, and 3
+results_geo_1 <- as.data.frame(sapply(parameters, function(param) geo95(PK_analysis_dig_wide[[paste0(param, "_1")]])))
+results_geo_2 <- as.data.frame(sapply(parameters, function(param) geo95(PK_analysis_dig_wide[[paste0(param, "_2")]])))
+results_geo_3 <- as.data.frame(sapply(parameters, function(param) geo95(PK_analysis_dig_wide[[paste0(param, "_3")]])))
+```
+Calculate arithmetic mean and standard deviation for the individual parameters pre and post T. Filter out the individuals that have NA values.
+```{r}
+source("_source/arithmetic_mean.R")
+# Compute arithmetic means for visits 1, 2, and 3
+results_mean_1 <- as.data.frame(sapply(parameters, function(param) arithmean(PK_analysis_dig_wide[[paste0(param, "_1")]])))
+results_mean_2 <- as.data.frame(sapply(parameters, function(param) arithmean(PK_analysis_dig_wide[[paste0(param, "_2")]])))
+results_mean_3 <- as.data.frame(sapply(parameters, function(param) arithmean(PK_analysis_dig_wide[[paste0(param, "_3")]])))
+```
+Calculate median for the individual parameters pre and post T. Filter out the individuals that have NA values.
+```{r}
+source("_source/medians.R")
+# Compute medians for visits 1, 2, and 3
+results_med_1 <- as.data.frame(sapply(parameters, function(param) medians(PK_analysis_dig_wide[[paste0(param, "_1")]])))
+results_med_2 <- as.data.frame(sapply(parameters, function(param) medians(PK_analysis_dig_wide[[paste0(param, "_2")]])))
+results_med_3 <- as.data.frame(sapply(parameters, function(param) medians(PK_analysis_dig_wide[[paste0(param, "_3")]])))
+```
+Calculate GMRs with both 90% and 95% CI.
+```{r}
+source("_source/geometric_mean_90CI.R")
+# Compute geometric mean ratios for visit 1 vs visit 2 and visit 1 vs visit 3
+results_GMR1_2_90 <- sapply(GMR_parameters, function(col) geo90(PK_analysis_dig_wide[[paste0(col, "1_2")]]))
+results_GMR1_3_90 <- sapply(GMR_parameters, function(col) geo90(PK_analysis_dig_wide[[paste0(col, "1_3")]]))
+results_GMR1_2_95 <- sapply(GMR_parameters, function(col) geo95(PK_analysis_dig_wide[[paste0(col, "1_2")]]))
+results_GMR1_3_95 <- sapply(GMR_parameters, function(col) geo95(PK_analysis_dig_wide[[paste0(col, "1_3")]]))
+
+# Add Tmax_GMR as "NA"
+results_GMR1_2_90 <- as.data.frame(c(results_GMR1_2_90, Tmax_GMR1_2 = "NA"))
+results_GMR1_3_90 <- as.data.frame(c(results_GMR1_3_90, Tmax_GMR1_3 = "NA"))
+results_GMR1_2_95 <- as.data.frame(c(results_GMR1_2_95, Tmax_GMR1_2 = "NA"))
+results_GMR1_3_95 <- as.data.frame(c(results_GMR1_3_95, Tmax_GMR1_3 = "NA"))
+```
+Save data frame in R format for reloading in other notebooks.
+```{r}
+save(ncaOutput, data_dig,summary_dig_plasma, results_mean_1,results_mean_2,results_mean_3,results_med_1,results_med_2,results_med_3, results_geo_1,results_geo_2,results_geo_3,results_GMR1_2_90, results_GMR1_3_90, results_GMR1_2_95, results_GMR1_3_95, PK_analysis_dig_wide, file = "_output/results_dig_plasma.RData")
+```
