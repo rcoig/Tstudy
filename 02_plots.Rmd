@@ -1,6 +1,6 @@
 ---
-title:     "Cirrincione T Study - Figures"
-updated:   2/13/25
+title:     "Cirrincione T Study - Manuscript and Exploratory Figures"
+updated:   3/12/25
 author:    Rene coig
 output:    html_notebook
 ---
@@ -22,98 +22,209 @@ library(tmaptools)
 Load in data
 ```{r}
 rm(list = ls())#clearing environment
-load("_output/NCA_Analysis.RData")
-load("_output/data_for_plots.RData")
+load("_output/data_dig_for_plots.RData")
+load("_output/data_mdz_for_plots.RData")
+time<-read.csv("_output/time_differences.csv")
+data_dig<-left_join(time,data_dig,by=c("ID","drug_visit_number_tru","time_hr","time_min"))
 ```
-Figure 2, Mean Digoxin plasma concentration (linear) over time with flipped axes (version 20250213.2)
+Figure 1A, Mean Midazolam plasma concentration (linear) over time with solid lines and different markers
 ```{r}
-plot_large <- ggplot(summary_dig_plasma, aes(x = time_hr, y = mean_conc, 
-              group = factor(drug_visit_number_tru), 
-              linetype = factor(drug_visit_number_tru))) + 
-  #geom_point(aes(x = time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.1 - 0.3),color = "black",size=0.5) +
-  
-  #geom_line(aes(x = time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.1 - 0.3),size=1) + 
-  #geom_line(data = summary_dig_plasma %>% filter(drug_visit_number_tru == 1),  
-   #             aes(x = time_hr - 0.08),size=0.6) +
-  #geom_line(data = summary_dig_plasma %>% filter(drug_visit_number_tru == 2), 
-    #            aes(x = time_hr - 0.02),size=0.6) +
-  #geom_line(data = summary_dig_plasma %>% filter(drug_visit_number_tru == 3), 
-   #             aes(x = time_hr - 0.05),size=0.6) +  
-  geom_line(data = summary_dig_plasma %>% 
-            mutate(adj_time_hr = case_when(
-              drug_visit_number_tru == 1 & time_hr != 0 ~ time_hr - 0.08,
-              drug_visit_number_tru == 2 & time_hr != 0 ~ time_hr - 0.02,
-              drug_visit_number_tru == 3 & time_hr != 0 ~ time_hr - 0.05,
-              TRUE ~ time_hr)),
-          aes(x = adj_time_hr), size = 0.5) +
-geom_errorbar(data = summary_dig_plasma %>% 
+Fig1A <- ggplot(summary_mdz_plasma, aes(x = time_hr, y = mean_conc, group = factor(drug_visit_number_tru))) +
+  geom_line(aes(x = time_hr), color = "black", size = 0.5) +
+  scale_shape_manual( # Define shape values and corresponding legend labels
+    values = c(21, 22, 24),
+    labels = c("Pre-testosterone", "1 month on testosterone", "3 months on testosterone")) +
+  geom_errorbar(data = summary_mdz_plasma %>% 
                 mutate(adj_time_hr = case_when(
-                  drug_visit_number_tru == 1 & time_hr != 0 ~ time_hr - 0.08,
-                  drug_visit_number_tru == 2 & time_hr != 0 ~ time_hr - 0.02,
-                  drug_visit_number_tru == 3 & time_hr != 0 ~ time_hr - 0.05,
+                  drug_visit_number_tru == 1 & time_hr != 0 ~ time_hr - 0.02,
+                  drug_visit_number_tru == 2 & time_hr != 0 ~ time_hr + 0.02,
+                  drug_visit_number_tru == 3 & time_hr != 0 ~ time_hr,
                   TRUE ~ time_hr)),
               aes(ymin = pmax(ifelse(drug_visit_number_tru == 3, mean_conc - SD_conc, mean_conc), 0),
                   ymax = ifelse(drug_visit_number_tru == 3, mean_conc, mean_conc + SD_conc),
                   x = adj_time_hr), 
-              width = 0, linewidth = 0.1, linetype = "solid") +
+              color = "black", width = 0, linewidth = 0.1, linetype = "solid") +
+  geom_point(aes(x = time_hr, shape = factor(drug_visit_number_tru)), stroke = 0.1, fill = "white", size = 1.5) +
+  labs(
+    x = "Time after dose (hours)", 
+    y = "Midazolam plasma concentration (ng/ml)", 
+    title = "") +
+  scale_y_continuous(breaks = seq(0, 20, by = 2), limits = c(0, 20), expand = c(0, 0)) +
+  theme_classic() +
+  theme(
+    plot.margin = margin(5, 20, 5, 5),
+    axis.text = element_text(size = 14, color = "black"),  
+    axis.title = element_text(size = 16),
+    legend.text = element_text(size = 14),
+    legend.title = element_blank(),
+    legend.position = "inside",     # legend inside the plot at (x, y) in normalized coordinates
+    legend.position.inside = c(0.75, 0.5),  # Adjust this to reposition the legend
+    legend.background = element_rect(fill = "white", color = "black", linewidth = 0.3))
 
+Fig1A <- Fig1A + 
+  scale_x_continuous(
+    breaks = c(0, 0.5, 1, 1.5, 2, 4, 6),  # Define exact tick positions
+    limits = c(0,6.05), expand = c(0,0),
+    labels = function(x) ifelse(x %in% c(0.5, 1.5), x, as.integer(x))  # Keep only 0.5 & 1.5 as decimals
+  )
+
+Fig1A
+
+# Save the plot as a PDF
+ggsave("Figures/Figure_1A.pdf", plot = Fig1A, width = 8, height = 6)
+```
+Figure 1B, Mean 1-hydroxymidazolam plasma concentration (linear) over time with solid lines and different markers
+```{r}
+Fig1B <- ggplot(summary_ohmdz_plasma, aes(x = time_hr, y = mean_conc, group = factor(drug_visit_number_tru))) +
+  geom_line(aes(x = time_hr), color = "black", size = 0.5) +
+  scale_shape_manual( # Define shape values and corresponding legend labels
+    values = c(21, 22, 24),
+    labels = c("Pre-testosterone", "1 month on testosterone", "3 months on testosterone")) +
+  geom_errorbar(data = summary_ohmdz_plasma %>% 
+                mutate(adj_time_hr = case_when(
+                  drug_visit_number_tru == 1 & time_hr != 0 ~ time_hr - 0.02,
+                  drug_visit_number_tru == 2 & time_hr != 0 ~ time_hr + 0.02,
+                  drug_visit_number_tru == 3 & time_hr != 0 ~ time_hr,
+                  TRUE ~ time_hr)),
+              aes(ymin = pmax(ifelse(drug_visit_number_tru == 3, mean_conc - SD_conc, mean_conc), 0),
+                  ymax = ifelse(drug_visit_number_tru == 3, mean_conc, mean_conc + SD_conc),
+                  x = adj_time_hr), 
+              color = "black", width = 0, linewidth = 0.1, linetype = "solid") +
+  geom_point(aes(x = time_hr, shape = factor(drug_visit_number_tru)), stroke = 0.1, fill = "white", size = 1.5) +
+  labs(
+    x = "Time after dose (hours)", 
+    y = "1-hydroxymidazolam plasma concentration (ng/ml)", 
+    title = "") +
+  scale_y_continuous(breaks = seq(0, 10, by = 2), limits = c(0, 10), expand = c(0, 0)) +
+  theme_classic() +
+  theme(
+    plot.margin = margin(5, 20, 5, 5),
+    axis.text = element_text(size = 14, color = "black"),  
+    axis.title = element_text(size = 16),
+    legend.text = element_text(size = 14),
+    legend.title = element_blank(),
+    legend.position = "inside",     # legend inside the plot at (x, y) in normalized coordinates
+    legend.position.inside = c(0.75, 0.5),  # Adjust this to reposition the legend
+    legend.background = element_rect(fill = "white", color = "black", linewidth = 0.3))
+
+Fig1B <- Fig1B + 
+  scale_x_continuous(
+    breaks = c(0, 0.5, 1, 1.5, 2, 4, 6),  # Define exact tick positions
+    limits = c(0,6.05), expand = c(0,0),
+    labels = function(x) ifelse(x %in% c(0.5, 1.5), x, as.integer(x))  # Keep only 0.5 & 1.5 as decimals
+  )
+
+Fig1B
+
+# Save the plot as a PDF
+ggsave("Figures/Figure_1B.pdf", plot = Fig1B, width = 8, height = 6)
+```
+Figure 1C, Mean 4-hydroxymidazolam plasma concentration (linear) over time with solid lines and different markers
+```{r}
+Fig1C <- ggplot(summary_4ohmdz_plasma, aes(x = time_hr, y = mean_conc, group = factor(drug_visit_number_tru))) +
+  geom_line(aes(x = time_hr), color = "black", size = 0.5) +
+  scale_shape_manual( # Define shape values and corresponding legend labels
+    values = c(21, 22, 24),
+    labels = c("Pre-testosterone", "1 month on testosterone", "3 months on testosterone")) +
+  geom_errorbar(data = summary_4ohmdz_plasma %>% 
+                mutate(adj_time_hr = case_when(
+                  drug_visit_number_tru == 1 & time_hr != 0 ~ time_hr - 0.02,
+                  drug_visit_number_tru == 2 & time_hr != 0 ~ time_hr + 0.02,
+                  drug_visit_number_tru == 3 & time_hr != 0 ~ time_hr,
+                  TRUE ~ time_hr)),
+              aes(ymin = pmax(ifelse(drug_visit_number_tru == 3, mean_conc - SD_conc, mean_conc), 0),
+                  ymax = ifelse(drug_visit_number_tru == 3, mean_conc, mean_conc + SD_conc),
+                  x = adj_time_hr), 
+              color = "black", width = 0, linewidth = 0.1, linetype = "solid") +
+  geom_point(aes(x = time_hr, shape = factor(drug_visit_number_tru)), stroke = 0.1, fill = "white", size = 1.5) +
+  labs(
+    x = "Time after dose (hours)", 
+    y = "4-hydroxymidazolam plasma concentration (ng/ml)", 
+    title = "") +
+  scale_y_continuous(breaks = seq(0, 0.8, by = 0.2), limits = c(0, 0.8), expand = c(0, 0)) +
+  theme_classic() +
+  theme(
+    plot.margin = margin(5, 20, 5, 5),
+    axis.text = element_text(size = 14, color = "black"),  
+    axis.title = element_text(size = 16),
+    legend.text = element_text(size = 14),
+    legend.title = element_blank(),
+    legend.position = "inside",     # legend inside the plot at (x, y) in normalized coordinates
+    legend.position.inside = c(0.75, 0.5),  # Adjust this to reposition the legend
+    legend.background = element_rect(fill = "white", color = "black", linewidth = 0.3))
+
+Fig1C <- Fig1C + 
+  scale_x_continuous(
+    breaks = c(0, 0.5, 1, 1.5, 2, 4, 6),  # Define exact tick positions
+    limits = c(0,6.05), expand = c(0,0),
+    labels = function(x) ifelse(x %in% c(0.5, 1.5), x, as.integer(x))  # Keep only 0.5 & 1.5 as decimals
+  )
+
+Fig1C
+
+# Save the plot as a PDF
+ggsave("Figures/Figure_1C.pdf", plot = Fig1C, width = 8, height = 6)
+```
+Figure 2, Mean Digoxin plasma concentration (linear) over time with solid lines and different markers
+```{r}
+plot_large <- ggplot(summary_dig_plasma, aes(x = time_hr, y = mean_conc, group = factor(drug_visit_number_tru))) + 
+ geom_line(aes(x = time_hr), color = "black", size = 0.5) +
+  scale_shape_manual( # Define shape values and corresponding legend labels
+    values = c(21, 22, 24),
+    labels = c("Pre-testosterone", "1 month on testosterone", "3 months on testosterone")) +
+  geom_errorbar(data = summary_dig_plasma %>% 
+                mutate(adj_time_hr = case_when(
+                  drug_visit_number_tru == 1 & time_hr != 0 ~ time_hr - 0.05,
+                  drug_visit_number_tru == 2 & time_hr != 0 ~ time_hr + 0.05,
+                  drug_visit_number_tru == 3 & time_hr != 0 ~ time_hr,
+                  TRUE ~ time_hr)),
+              aes(ymin = pmax(ifelse(drug_visit_number_tru == 3, mean_conc - SD_conc, mean_conc), 0),
+                  ymax = ifelse(drug_visit_number_tru == 3, mean_conc, mean_conc + SD_conc),
+                  x = adj_time_hr), 
+              color = "black", width = 0, linewidth = 0.1, linetype = "solid") +
+  geom_point(aes(x = time_hr, shape = factor(drug_visit_number_tru)), stroke = 0.1, fill = "white", size = 1.5) +
   labs(x = "Time after dose (hours)", 
        y = "Digoxin plasma concentration (ng/ml)", 
        title = "",
        color = "black", linetype = NULL, shape = NULL) +  # Remove legend title
   scale_x_continuous(breaks = c(seq(0, 8, by = 2), 12, 24, 48), limits = c(0, 48), expand = c(0, 0)) +
   scale_y_continuous(breaks = seq(0, 2, by = 0.5), limits = c(0, 2), expand = c(0, 0)) +
-  scale_linetype_manual(values = c("1" = "solid", "2" = "dotted", "3" = "dashed"),
-                        labels = c("1" = "Pre-testosterone", "2" = "1 month of testosterone", 
-                                  "3" = "3 months of testosterone")) +
   theme_classic()+
-  theme(#legend.position = c(0.6, 0.4),  # Inside the plot
-        #legend.justification = c(0, 1),  # Align legend top-left
-        #legend.direction = "vertical",
-        #legend.box = "vertical",
-        #legend.background = element_rect(fill = "white", color = "white"),
-        #legend.margin = margin(5, 5, 5, 5),
+  theme(legend.position = c(0.65, 0.8),  # Inside the plot
+        legend.justification = c(0, 1),  # Align legend top-left
+        legend.direction = "vertical",
+        legend.box = "vertical",
+        legend.background = element_rect(fill = "white", color = "white"),
+        legend.margin = margin(5, 5, 5, 5),
         plot.margin = margin(5, 20, 5, 5),
         axis.text = element_text(size = 14, color = "black"),  # Axis tick labels # Makes axis tick labels black
         axis.title = element_text(size = 16),  # Axis titles
-        legend.text = element_text(size = 14),
-        legend.position = "none"  # Removes the legend
-# Legend text
-)
+        legend.text = element_text(size = 14))
 
   guides(color = guide_legend(ncol = 1),
          linetype = guide_legend(ncol = 1),
          shape = guide_legend(ncol = 1))
 
-plot_inset <- ggplot(summary_dig_plasma%>%filter(time_hr<8), aes(x = time_hr, y = mean_conc, 
-              group = factor(drug_visit_number_tru), 
-              linetype = factor(drug_visit_number_tru))) + 
-  #geom_point(aes(x = time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.05 - 0.05),color = "black",size=0.5) +
-  geom_point(data = summary_dig_plasma %>% 
-            mutate(adj_time_hr = case_when(
-              drug_visit_number_tru == 1 & time_hr != 0 ~ time_hr - 0.07,
-              drug_visit_number_tru == 2 & time_hr != 0 ~ time_hr - 0.01,
-              drug_visit_number_tru == 3 & time_hr != 0 ~ time_hr - 0.04,
-              TRUE ~ time_hr)),
-          aes(x = adj_time_hr), color = "black",size=0.5) + 
-    geom_line(data = summary_dig_plasma %>% 
-            mutate(adj_time_hr = case_when(
-              drug_visit_number_tru == 1 & time_hr != 0 ~ time_hr - 0.07,
-              drug_visit_number_tru == 2 & time_hr != 0 ~ time_hr - 0.01,
-              drug_visit_number_tru == 3 & time_hr != 0 ~ time_hr - 0.04,
-              TRUE ~ time_hr)),
-          aes(x = adj_time_hr), size = 0.6) +
-geom_errorbar(data = summary_dig_plasma %>% 
+plot_inset <- ggplot(summary_dig_plasma%>%filter(time_hr<8), aes(x = time_hr, y = mean_conc, group = factor(drug_visit_number_tru))) + 
+ geom_line(aes(x = time_hr), color = "black", size = 0.5) +
+  scale_shape_manual( # Define shape values and corresponding legend labels
+    values = c(21, 22, 24),
+    labels = c("Pre-testosterone", "1 month on testosterone", "3 months on testosterone")) +
+  geom_errorbar(data = summary_dig_plasma %>% 
                 mutate(adj_time_hr = case_when(
-              drug_visit_number_tru == 1 & time_hr != 0 ~ time_hr - 0.07,
-              drug_visit_number_tru == 2 & time_hr != 0 ~ time_hr - 0.01,
-              drug_visit_number_tru == 3 & time_hr != 0 ~ time_hr - 0.04,
+                  drug_visit_number_tru == 1 & time_hr != 0 ~ time_hr - 0.03,
+                  drug_visit_number_tru == 2 & time_hr != 0 ~ time_hr + 0.03,
+                  drug_visit_number_tru == 3 & time_hr != 0 ~ time_hr,
                   TRUE ~ time_hr)),
               aes(ymin = pmax(ifelse(drug_visit_number_tru == 3, mean_conc - SD_conc, mean_conc), 0),
                   ymax = ifelse(drug_visit_number_tru == 3, mean_conc, mean_conc + SD_conc),
                   x = adj_time_hr), 
-              width = 0, linewidth = 0.1, linetype = "solid") +
-  labs(x = "Time after dose (hours)", y = "Digoxin plasma concentration (ng/ml)") + 
+              color = "black", width = 0, linewidth = 0.1, linetype = "solid") +
+  geom_point(aes(x = time_hr, shape = factor(drug_visit_number_tru)), stroke = 0.1, fill = "white", size = 1.5) +
+    labs(x = "Time after dose (hours)", 
+       y = "Digoxin plasma concentration (ng/ml)", 
+       title = "",
+       color = "black", linetype = NULL, shape = NULL) +  # Remove legend title
   theme_classic()+
   theme(plot.title = element_text(hjust = 2), 
               legend.position = "none",  
@@ -126,8 +237,7 @@ geom_errorbar(data = summary_dig_plasma %>%
   breaks = c(seq(0, 6, by = 2), 0.5, 1, 1.5),
   limits = c(0, 6.2),
   expand = c(0, 0),
-  labels = function(x) ifelse(x %% 1 == 0, as.character(x), format(x, nsmall = 1)))+
-  scale_linetype_manual(values = c("1" = "solid", "2" = "dotted", "3" = "dashed"))
+  labels = function(x) ifelse(x %% 1 == 0, as.character(x), format(x, nsmall = 1)))
 
 
 Fig2<-plot_large +
@@ -139,222 +249,161 @@ Fig2<-plot_large +
     ymax = 1.9)
 Fig2
 
-ggsave(filename = "Figures/Figure_2_20250213_2.jpg", plot = Fig2, width = 12, height = 6, dpi = 600)
 # Save the plot as a PDF
-ggsave("Figures/Figure_2_20250213_2.pdf", plot = Fig2, width = 12, height = 6)
+ggsave("Figures/Figure_2.pdf", plot = Fig2, width = 12, height = 6)
 ```
-Figure 2, Mean Digoxin plasma concentration (linear) over time with flipped axes (version 20250213.1)
-```{r}
-plot_large <- ggplot(summary_dig_plasma, aes(x = time_hr, y = mean_conc, 
-              group = factor(drug_visit_number_tru), 
-              linetype = factor(drug_visit_number_tru))) + 
-  #geom_point(aes(x = time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.1 - 0.3),color = "black",size=0.5) +
-  
-  #geom_line(aes(x = time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.1 - 0.3),size=1) + 
-  #geom_line(data = summary_dig_plasma %>% filter(drug_visit_number_tru == 1),  
-   #             aes(x = time_hr - 0.08),size=0.6) +
-  #geom_line(data = summary_dig_plasma %>% filter(drug_visit_number_tru == 2), 
-    #            aes(x = time_hr - 0.02),size=0.6) +
-  #geom_line(data = summary_dig_plasma %>% filter(drug_visit_number_tru == 3), 
-   #             aes(x = time_hr - 0.05),size=0.6) +  
-  geom_line(data = summary_dig_plasma %>% 
-            mutate(adj_time_hr = case_when(
-              drug_visit_number_tru == 1 & time_hr != 0 ~ time_hr - 0.08,
-              drug_visit_number_tru == 2 & time_hr != 0 ~ time_hr - 0.02,
-              drug_visit_number_tru == 3 & time_hr != 0 ~ time_hr - 0.05,
-              TRUE ~ time_hr)),
-          aes(x = adj_time_hr), size = 0.5) +
-geom_errorbar(data = summary_dig_plasma %>% 
-                mutate(adj_time_hr = case_when(
-                  drug_visit_number_tru == 1 & time_hr != 0 ~ time_hr - 0.08,
-                  drug_visit_number_tru == 2 & time_hr != 0 ~ time_hr - 0.02,
-                  drug_visit_number_tru == 3 & time_hr != 0 ~ time_hr - 0.05,
-                  TRUE ~ time_hr)),
-              aes(ymin = pmax(ifelse(drug_visit_number_tru == 3, mean_conc - SD_conc, mean_conc), 0),
-                  ymax = ifelse(drug_visit_number_tru == 3, mean_conc, mean_conc + SD_conc),
-                  x = adj_time_hr), 
-              width = 0, linewidth = 0.1, linetype = "solid", alpha = 0.5) +
-
-  labs(x = "Time after dose (hours)", 
-       y = "Digoxin plasma concentration (ng/ml)", 
-       title = "",
-       color = "black", linetype = NULL, shape = NULL) +  # Remove legend title
-  scale_x_continuous(breaks = c(seq(0, 8, by = 2), 12, 24, 48), limits = c(0, 48), expand = c(0, 0)) +
-  scale_y_continuous(breaks = seq(0, 2, by = 0.5), limits = c(0, 2), expand = c(0, 0)) +
-  scale_linetype_manual(values = c("1" = "solid", "2" = "dotdash", "3" = "dashed"),
-                        labels = c("1" = "Pre-testosterone", "2" = "1 month of testosterone", 
-                                  "3" = "3 months of testosterone")) +
-  theme_classic()+
-  theme(#legend.position = c(0.6, 0.4),  # Inside the plot
-        #legend.justification = c(0, 1),  # Align legend top-left
-        #legend.direction = "vertical",
-        #legend.box = "vertical",
-        #legend.background = element_rect(fill = "white", color = "white"),
-        #legend.margin = margin(5, 5, 5, 5),
-        plot.margin = margin(5, 20, 5, 5),
-        axis.text = element_text(size = 14, color = "black"),  # Axis tick labels # Makes axis tick labels black
-        axis.title = element_text(size = 16),  # Axis titles
-        legend.text = element_text(size = 14),
-        legend.position = "none"  # Removes the legend
-# Legend text
-)
-
-  guides(color = guide_legend(ncol = 1),
-         linetype = guide_legend(ncol = 1),
-         shape = guide_legend(ncol = 1))
-
-plot_inset <- ggplot(summary_dig_plasma%>%filter(time_hr<8), aes(x = time_hr, y = mean_conc, 
-              group = factor(drug_visit_number_tru), 
-              linetype = factor(drug_visit_number_tru))) + 
-  #geom_point(aes(x = time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.05 - 0.05),color = "black",size=0.5) +
-  geom_point(data = summary_dig_plasma %>% 
-            mutate(adj_time_hr = case_when(
-              drug_visit_number_tru == 1 & time_hr != 0 ~ time_hr - 0.07,
-              drug_visit_number_tru == 2 & time_hr != 0 ~ time_hr - 0.01,
-              drug_visit_number_tru == 3 & time_hr != 0 ~ time_hr - 0.04,
-              TRUE ~ time_hr)),
-          aes(x = adj_time_hr), color = "black",size=0.5) + 
-    geom_line(data = summary_dig_plasma %>% 
-            mutate(adj_time_hr = case_when(
-              drug_visit_number_tru == 1 & time_hr != 0 ~ time_hr - 0.07,
-              drug_visit_number_tru == 2 & time_hr != 0 ~ time_hr - 0.01,
-              drug_visit_number_tru == 3 & time_hr != 0 ~ time_hr - 0.04,
-              TRUE ~ time_hr)),
-          aes(x = adj_time_hr), size = 0.6) +
-geom_errorbar(data = summary_dig_plasma %>% 
-                mutate(adj_time_hr = case_when(
-              drug_visit_number_tru == 1 & time_hr != 0 ~ time_hr - 0.07,
-              drug_visit_number_tru == 2 & time_hr != 0 ~ time_hr - 0.01,
-              drug_visit_number_tru == 3 & time_hr != 0 ~ time_hr - 0.04,
-                  TRUE ~ time_hr)),
-              aes(ymin = pmax(ifelse(drug_visit_number_tru == 3, mean_conc - SD_conc, mean_conc), 0),
-                  ymax = ifelse(drug_visit_number_tru == 3, mean_conc, mean_conc + SD_conc),
-                  x = adj_time_hr), 
-              width = 0, linewidth = 0.1, linetype = "solid", alpha = 0.5) +
-  labs(x = "Time after dose (hours)", y = "Digoxin plasma concentration (ng/ml)") + 
-  theme_classic()+
-  theme(plot.title = element_text(hjust = 2), 
-              legend.position = "none",  
-              text=element_text(size=12),
-              axis.text = element_text(color = "black"),  # Makes axis tick labels black
-              plot.margin = margin(10, 10, 5, 10),
-              plot.background = element_rect(color = "black", fill = NA, linewidth = 0.1)) +
-  scale_y_continuous(breaks = seq(0, 2, by = 0.5), limits = c(0, 2), expand = c(0, 0)) +
-  scale_x_continuous(
-  breaks = c(seq(0, 6, by = 2), 0.5, 1, 1.5),
-  limits = c(0, 6.2),
-  expand = c(0, 0),
-  labels = function(x) ifelse(x %% 1 == 0, as.character(x), format(x, nsmall = 1)))+
-  scale_linetype_manual(values = c("1" = "solid", "2" = "dotdash", "3" = "dashed"))
-
-
-Fig2<-plot_large +
-  annotation_custom(
-    grob = ggplotGrob(plot_inset),
-    xmin = 20, 
-    xmax = 46, 
-    ymin = 0.5,
-    ymax = 1.9)
-Fig2
-
-ggsave(filename = "Figures/Figure_2_1.jpg", plot = Fig2, width = 12, height = 6, dpi = 600)
-# Save the plot as a PDF
-ggsave("Figures/Figure_2_20250213_1.pdf", plot = Fig2, width = 12, height = 6)
-```
-Figure 2, Mean Digoxin plasma concentration (linear) over time without flipped axes (version 20250207)
-```{r}
-plot_large <- ggplot(summary_dig_plasma, aes(x = time_hr, y = mean_conc, 
-              group = factor(drug_visit_number_tru), 
-              linetype = factor(drug_visit_number_tru))) + 
-  geom_point(aes(x = time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.1 - 0.3),color = "black",size=0.5) +
-  geom_line(aes(x = time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.1 - 0.3)) + 
-  geom_errorbar(aes(ymin = mean_conc, ymax = mean_conc + SD_conc,
-                    x = time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.1 - 0.3),
-                width = 0, linewidth = 0.2, linetype = "solid") +
-  labs(x = "Time after dose (hours)", 
-       y = "Concentration (ng/ml)", 
-       title = "",
-       color = "black", linetype = NULL, shape = NULL) +  # Remove legend title
-  scale_x_continuous(breaks = c(seq(0, 8, by = 2), 12, 24, 48), limits = c(-0.5, 48), expand = c(0, 0)) +
-  scale_y_continuous(breaks = seq(0, 2, by = 0.5), limits = c(-0.1, 2), expand = c(0, 0)) +
-  scale_linetype_manual(values = c("1" = "solid", "2" = "dotted", "3" = "dashed"),
-                        labels = c("1" = "Pre-testosterone", "2" = "1 month of testosterone", 
-                                  "3" = "3 months of testosterone")) +
-  theme_classic()+
-  theme(#legend.position = c(0.6, 0.4),  # Inside the plot
-        #legend.justification = c(0, 1),  # Align legend top-left
-        #legend.direction = "vertical",
-        #legend.box = "vertical",
-        #legend.background = element_rect(fill = "white", color = "white"),
-        #legend.margin = margin(5, 5, 5, 5),
-        plot.margin = margin(5, 10, 5, 5),
-        axis.text = element_text(size = 14, color = "black"),  # Axis tick labels # Makes axis tick labels black
-        axis.title = element_text(size = 16),  # Axis titles
-        legend.text = element_text(size = 14),
-        legend.position = "none"  # Removes the legend
-# Legend text
-)
-
-  guides(color = guide_legend(ncol = 1),
-         linetype = guide_legend(ncol = 1),
-         shape = guide_legend(ncol = 1))
-
-
-
-
-
-plot_inset <- ggplot(summary_dig_plasma%>%filter(time_hr<8), aes(x = time_hr, y = mean_conc, 
-              group = factor(drug_visit_number_tru), 
-              linetype = factor(drug_visit_number_tru))) + 
-  geom_point(aes(x = time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.05 - 0.05),color = "black",size=0.5) +
-  geom_line(aes(x = time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.05 - 0.05)) + 
-  geom_errorbar(aes(ymin = mean_conc, ymax = mean_conc + SD_conc,
-                    x = time_hr + as.numeric(factor(drug_visit_number_tru)) * 0.05 - 0.05),
-                width = 0, linewidth = 0.2, linetype = "solid") +
-  labs(x = "", y = "Concentration ( ng/ml )") + 
-  theme_classic()+
-  theme(plot.title = element_text(hjust = 2), 
-              legend.position = "none",  
-              text=element_text(size=12),
-              axis.text = element_text(color = "black"),  # Makes axis tick labels black
-              plot.margin = margin(10, 10, 5, 10),
-              plot.background = element_rect(color = "black", fill = NA, linewidth = 0.1)) +
-  scale_y_continuous(breaks = seq(0, 2, by = 0.5), limits = c(-0.1, 2), expand = c(0, 0)) +
-  scale_x_continuous(
-  breaks = c(seq(0, 6, by = 2), 0.5, 1, 1.5),
-  limits = c(-0.05, 6.2),
-  expand = c(0, 0),
-  labels = function(x) ifelse(x %% 1 == 0, as.character(x), format(x, nsmall = 1)))+
-  scale_linetype_manual(values = c("1" = "solid", "2" = "dotted", "3" = "dashed"))
-
-
-Fig2<-plot_large +
-  annotation_custom(
-    grob = ggplotGrob(plot_inset),
-    xmin = 20, 
-    xmax = 46, 
-    ymin = 0.5,
-    ymax = 1.9)
-Fig2
-
-ggsave(filename = "Figures/Figure_2_20250207.png", plot = Fig2, width = 12, height = 6, dpi = 600)
-# Save the plot as a PDF
-ggsave("Figures/Figure_2_20250207.pdf", plot = Fig2, width = 12, height = 6)
-```
-Plots by participant ID for the original concentrations at the observed time points:
+Plots by participant ID for midazolam concentrations at the observed time points:
 ```{r}
 # Get unique participant IDs
-participant_ids <- unique(data_dig_adjusted$ID)
+participant_ids <- unique(data_mdz$ID)
 
 # Loop through each participant and create/save the plot
 for (participant_id in participant_ids) {
   # Filter data for the current participant
-  participant_data <- data_dig_adjusted %>%
+  participant_data <- data_mdz %>%
     filter(ID == participant_id)
-  participant_time <- participant_data%>%select(ID,drug_visit_number_tru,time_hr,time_hr_actual,time_hr_diff)
+  participant_time <- participant_data%>%select(ID,drug_visit_number_tru,time_hr,time_hr)
   
   # Create the plot
-  plot <- ggplot(participant_data, aes(x = time_hr_actual, y = conc_1ml_adjust, #observed time points and measured concentrations
+  plot <- ggplot(participant_data, aes(x = time_hr, y = conc_ngml_float, #observed time points and measured concentrations
+              group = factor(drug_visit_number_tru), color = factor(drug_visit_number_tru))) +
+    geom_point(size=3) +
+    geom_line(aes(color = factor(drug_visit_number_tru)),size=1) + 
+    labs(
+      x = "Time after dose (hours)", 
+      y = "Concentration (ng/ml)", 
+      title = "Midazolam", 
+      color = "Drug Visit"
+    ) +
+    scale_y_continuous(limits = c(0, 25)) +
+    #scale_x_continuous(breaks = c(seq(0, 8, by = 2), 12, 24, 48, 52), limits = c(0, 52)) +
+    scale_color_manual(values = c("1" = "#F8766D", "2" = "#00BA38", "3" = "#619CFF")) +
+    guides(linetype = "none",shape="none")+ 
+    theme_classic() +
+    theme(
+      plot.title = element_text(hjust = 0.5),
+      legend.position = "bottom",
+      text=element_text(size=20)
+    )
+  print(plot)
+
+
+  # Save each plot as a PNG file
+  ggsave(
+    filename = paste0("Figures/Midazolam/Participant_", participant_id, "_mdz.png"),
+    plot = plot,
+    width = 7,
+    height = 5,
+    dpi = 300
+  )
+}
+```
+Plots by participant ID for 1′-hydroxymidazolam concentrations at the observed time points:
+```{r}
+# Get unique participant IDs
+participant_ids <- unique(data_ohmdz$ID)
+
+# Loop through each participant and create/save the plot
+for (participant_id in participant_ids) {
+  # Filter data for the current participant
+  participant_data <- data_ohmdz %>%
+    filter(ID == participant_id)
+  participant_time <- participant_data%>%select(ID,drug_visit_number_tru,time_hr,time_hr)
+  
+  # Create the plot
+  plot <- ggplot(participant_data, aes(x = time_hr, y = conc_ngml_float, #observed time points and measured concentrations
+              group = factor(drug_visit_number_tru), color = factor(drug_visit_number_tru))) +
+    geom_point(size=3) +
+    geom_line(aes(color = factor(drug_visit_number_tru)),size=1) + 
+    labs(
+      x = "Time after dose (hours)", 
+      y = "Concentration (ng/ml)", 
+      title = "1′-hydroxymidazolam", 
+      color = "Drug Visit"
+    ) +
+    scale_y_continuous(limits = c(0, 12)) +
+    #scale_x_continuous(breaks = c(seq(0, 8, by = 2), 12, 24, 48, 52), limits = c(0, 52)) +
+    scale_color_manual(values = c("1" = "#F8766D", "2" = "#00BA38", "3" = "#619CFF")) +
+    guides(linetype = "none",shape="none")+ 
+    theme_classic() +
+    theme(
+      plot.title = element_text(hjust = 0.5),
+      legend.position = "bottom",
+      text=element_text(size=20)
+    )
+  print(plot)
+
+
+  # Save each plot as a PNG file
+  ggsave(
+    filename = paste0("Figures/Midazolam/Participant_", participant_id, "_ohmdz.png"),
+    plot = plot,
+    width = 7,
+    height = 5,
+    dpi = 300
+  )
+}
+```
+Plots by participant ID for 1,4-dihydroxymidazolam concentrations at the observed time points:
+```{r}
+# Get unique participant IDs
+participant_ids <- unique(data_4ohmdz$ID)
+
+# Loop through each participant and create/save the plot
+for (participant_id in participant_ids) {
+  # Filter data for the current participant
+  participant_data <- data_4ohmdz %>%
+    filter(ID == participant_id)
+  participant_time <- participant_data%>%select(ID,drug_visit_number_tru,time_hr,time_hr)
+  
+  # Create the plot
+  plot <- ggplot(participant_data, aes(x = time_hr, y = conc_ngml_float, #observed time points and measured concentrations
+              group = factor(drug_visit_number_tru), color = factor(drug_visit_number_tru))) +
+    geom_point(size=3) +
+    geom_line(aes(color = factor(drug_visit_number_tru)),size=1) + 
+    labs(
+      x = "Time after dose (hours)", 
+      y = "Concentration (ng/ml)", 
+      title = "1,4-dihydroxymidazolam", 
+      color = "Drug Visit"
+    ) +
+    scale_y_continuous(limits = c(0, 1.3)) +
+    #scale_x_continuous(breaks = c(seq(0, 8, by = 2), 12, 24, 48, 52), limits = c(0, 52)) +
+    scale_color_manual(values = c("1" = "#F8766D", "2" = "#00BA38", "3" = "#619CFF")) +
+    guides(linetype = "none",shape="none")+ 
+    theme_classic() +
+    theme(
+      plot.title = element_text(hjust = 0.5),
+      legend.position = "bottom",
+      text=element_text(size=20)
+    )
+  print(plot)
+
+
+  # Save each plot as a PNG file
+  ggsave(
+    filename = paste0("Figures/Midazolam/Participant_", participant_id, "_4ohmdz.png"),
+    plot = plot,
+    width = 7,
+    height = 5,
+    dpi = 300
+  )
+}
+```
+Plots by participant ID for the original digoxin concentrations at the observed time points (BLQs included):
+```{r}
+# Get unique participant IDs
+participant_ids <- unique(data_dig$ID)
+
+# Loop through each participant and create/save the plot
+for (participant_id in participant_ids) {
+  # Filter data for the current participant
+  participant_data <- data_dig %>%
+    filter(ID == participant_id)
+  participant_time <- participant_data%>%select(ID,drug_visit_number_tru,time_hr_actual)
+  
+  # Create the plot
+  plot <- ggplot(participant_data, aes(x = time_hr_actual, y = conc_1ml_adjust_blqs, #observed time points and measured concentrations
               group = factor(drug_visit_number_tru), color = factor(drug_visit_number_tru))) +
     geom_point(size=2) +
     geom_line(aes(linetype = factor(drug_visit_number_tru), color = factor(drug_visit_number_tru))) + 
@@ -379,30 +428,28 @@ for (participant_id in participant_ids) {
 
   # Save each plot as a PNG file
   ggsave(
-    filename = paste0("Figures/Participant_", participant_id, "_actual.png"),
+    filename = paste0("Figures/Digoxin/Participant_", participant_id, "_actual.png"),
     plot = plot,
     width = 12,
     height = 8,
     dpi = 300
   )
-  #output a .csv for each participant with the nominal vs ideal times
-  write.csv(participant_time%>%filter(time_hr_diff!=0),paste0("_output/Participant_", participant_id, "_actualvnominal.csv"))
   
 }
 ```
-Plots by participant ID for the imputed concentrations at the nominal time points for comparison:
+Plots by participant ID for the imputed digoxin concentrations at the nominal time points for comparison:
 ```{r}
 # Get unique participant IDs
-participant_ids <- unique(data_dig_adjusted$ID)
+participant_ids <- unique(data_dig$ID)
 
 # Loop through each participant and create/save the plot
 for (participant_id in participant_ids) {
   # Filter data for the current participant
-  participant_data <- data_dig_adjusted %>%
+  participant_data <- data_dig %>%
     filter(ID == participant_id)
 
   # Create the plot
-  plot <- ggplot(participant_data, aes(x = time_hr, y = conc_1ml_imp, #nominal time points and imputed concentrations
+  plot <- ggplot(participant_data, aes(x = time_hr, y = imputed_concentration, #imputed concentrations
               group = factor(drug_visit_number_tru), color = factor(drug_visit_number_tru))) +
     geom_point(size=2) +
     geom_line(aes(linetype = factor(drug_visit_number_tru), color = factor(drug_visit_number_tru))) + 
@@ -427,7 +474,7 @@ for (participant_id in participant_ids) {
 
   # Save each plot as a PNG file
   ggsave(
-    filename = paste0("Figures/Participant_", participant_id, "_imputed.png"),
+    filename = paste0("Figures/Digoxin/Participant_", participant_id, "_imputed.png"),
     plot = plot,
     width = 12,
     height = 8,
@@ -435,41 +482,3 @@ for (participant_id in participant_ids) {
   )
 }
 ```
-Create spaghetti plots for individual metrics.
-```{r}
-ggplot(data = PK_analysis,
-       aes(x = factor(drug_visit_number_tru), y = Cl_obs)) +
-  geom_point(size=1) +
-  geom_line(aes(group = ID), size=0.5) +
-  theme_classic() +
-  labs(x = "", y = expression(Digoxin~CL/F~(ml~min^-1))) +
-  scale_y_continuous(position = "left", breaks = scales ::pretty_breaks(n=4)) +  guides(color=none)
-
-ggplot(data = PK_analysis,
-       aes(x = factor(drug_visit_number_tru), y = AUClast)) +
-  geom_point(size=1) +
-  geom_line(aes(group = ID), size=0.5) +
-  theme_classic() +
-  labs(x = "",   y = expression(Digoxin~AUC[0-last]~","~ng %.% h/ml)) +
-  scale_y_continuous(position = "left", breaks = scales ::pretty_breaks(n=4)) +  guides(color=none)
-```
-Correlation plot between 24h CrCL and the Ae of digoxin 
-```{r}
-# Calculate correlation
-cor_value_spearman <- cor(data_dig_urine$crcl_24h, data_dig_urine$Cl_R, use = "complete.obs", method = "spearman")
-cor_value_pearsons <- cor(data_dig_urine$crcl_24h, data_dig_urine$Cl_R, use = "complete.obs", method = "pearson")
-
-plot<-ggplot(data_dig_urine, aes(x = crcl_24h, y = Cl_R, shape = as.factor(drug_visit_number_tru), color = as.factor(drug_visit_number_tru))) +
-  geom_point(alpha = 0.6, size =2) +  # Scatter plot with different shapes and colors for visits
-  #geom_smooth(method = "lm", se = TRUE, color = "black") +  # Regression line
-  labs(title = paste("Pearson's r = ", round(cor_value_pearsons, 2), "\nSpearman's r = ", round(cor_value_spearman, 2)), 
-       x = "Creatinine Clearance (ml/min)", 
-       y = "Digoxin Renal Clearance (ml/min)", 
-       shape = "Visit Number", 
-       color = "Visit Number") +  # Add legend labels
-  theme_classic()
-plot
-ggsave(filename = "Figures/corr_digoxin_creatinine.png", plot = plot, width = 6, height = 6, dpi = 600)
-```
-
-
