@@ -1,6 +1,6 @@
 ---
 title:     "Cirrincione T Study - Digoxin Urine concentration data"
-updated:   3/11/25
+updated:   3/12/25
 author:    Rene coig
 output:    html_notebook
 ---
@@ -37,18 +37,18 @@ Create df with all needed parameters for digoxin clearance calculations.
 AUC<-ncaOutput%>%select(ID,drug_visit_number_tru,AUClast,Cl_obs)
 data_dig_urine<-merge(data_dig_urine,AUC,by=c("ID","drug_visit_number_tru"))
 ```
+Digoxin renal clearance is estimated by CLRenal = Ae (ng) / AUC0–48h (ng*hr)/ml = (ml/hr)
+```{r}
+data_dig_urine$Cl_R<-round((data_dig_urine$Ae_48h/data_dig_urine$AUClast),0) #ml/hr
+```
 Adjusting units from hours to mins. Crcl is ml/min and AUC is ng hr/ml; needs to be ng min/ml
 ```{r}
-data_dig_urine$AUClast_minml<-data_dig_urine$AUClast*60 #(ng*hr)/ml -> (ng*min)/ml
-```
-Digoxin renal clearance is estimated by CLRenal = Ae (ng) / AUC0–48h (ng*min)/ml = (ml/min)
-```{r}
-data_dig_urine$Cl_R<-round((data_dig_urine$Ae_48h/data_dig_urine$AUClast_minml),0) #ml/min
+data_dig_urine$Cl_R<-data_dig_urine$Cl_R/60 #ml/hr -> ml/min
 ```
 Digoxin renal secretion clearance is estimated by CLsecretion = CLRenal (ml/min) – fu·CrCl (ml/min) where fu is estimated at 0.75 (Steiness 1974)
 ```{r}
 data_dig_urine$fuCrCl<-0.75*data_dig_urine$crcl_24h #fraction unbound
-data_dig_urine$Cl_S<-round((data_dig_urine$Cl_R - data_dig_urine$fuCrCl),0) #ml/min
+data_dig_urine$Cl_S<-round((data_dig_urine$Cl_R - data_dig_urine$fuCrCl),1) #ml/min
 ```
 Wide format for summary stats.
 ```{r}

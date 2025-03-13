@@ -1,6 +1,6 @@
 ---
-title:     "Cirrincione T Study - Statistical Analysis"
-updated:   2/7/25
+title:     "Cirrincione T Study - Statistical Analysis and Tables"
+updated:   3/12/25
 author:    Rene coig
 output:    html_notebook
 ---
@@ -13,8 +13,29 @@ R version 4.4.2 "Pile of Leaves"
 Load in summary data for table export
 ```{r}
 rm(list = ls())#clearing environment
-load("_output/results_urine.RData")
-load("_output/results_plasma.RData")
+load("_output/results_dig.RData")
+load("_output/results_mdz.RData")
+```
+Assemble Table1, Midazolam Results
+```{r}
+Table1 <- matrix(nrow=7, ncol=0)
+Table1 <- cbind(results_med_1_mdz, results_geo_1_mdz, results_mean_1_mdz,
+                results_med_2_mdz, results_geo_2_mdz, results_mean_2_mdz,
+                results_med_3_mdz, results_geo_3_mdz, results_mean_3_mdz,
+                results_GMR1_2_90_mdz, results_GMR1_2_95_mdz, 
+                results_GMR1_3_90_mdz, results_GMR1_3_95_mdz,
+                Table1)
+
+colnames1 <- c("PRE T (Median (IQR))", "PRE T (Geo Mean (95% CI))",  "PRE T (Mean (SD))", 
+               "4 weeks POST T (Median (IQR))", "4 weeks POST T (Geo Mean (95% CI))", "4 weeks POST T (Mean (SD))",
+               "12 weeks POST T (Median (IQR))", "12 weeks POST T Geo Mean (95% CI))", "12 weeks POST T (Mean (SD))",
+               "GMR 4 weeks (90% CI)", "GMR 4 weeks (95% CI)", "GMR 12 weeks (90% CI)", "GMR 12 weeks (95% CI)")
+Table1 <- rbind(colnames1, Table1)
+rownames1 <- c("DRUG", "Midazolam", "", "", "", "", "", "")
+rownames2 <- c("PARAMETER", "AUC 0-6 (ng*h)/ml", "AUC 0-inf (ng*h)/ml", 
+               "Cmax (ng/ml)", "CL/F (L/min)", "Half-life (h)", "Vd/F (L)", "Tmax (h)")
+
+Table1 <- cbind(rownames1, rownames2, Table1)
 ```
 Assemble Table2, Digoxin Results
 ```{r}
@@ -37,7 +58,7 @@ rownames2 <- c("PARAMETER", "AUC 0-4 (ng*h)/ml", "AUC 0-48 (ng*h)/ml", "AUC 0-in
 
 Table2 <- cbind(rownames1, rownames2, Table2)
 ```
-Assemble a table with all of the estimated digoxin pharmacokinetic parameters
+Assemble a table with all of the estimated digoxin urine pharmacokinetic parameters
 ```{r}
 Table3 <- matrix(nrow=2, ncol=0)
 Table3 <- cbind(results_Umed_1, results_Ugeo_1, results_Umean_1,
@@ -56,7 +77,8 @@ Combine Table 2 and 3 into one big table
 Table2 <- rbind(Table2, setNames(Table3, names(Table2)))
 
 ```
-Save out final adjusted Digoxin data and NCA output in R format for plots and statistical analysis.
+Save out final summary data for review.
 ```{r}
+write.table(Table1, file = "_output/Table1.csv", row.names = FALSE, col.names=FALSE, sep = ",")
 write.table(Table2, file = "_output/Table2.csv", row.names = FALSE, col.names=FALSE, sep = ",")
 ```
